@@ -36,11 +36,9 @@ void simulate_step(float *map, float *next_map, struct Agent *agents, int width,
     // iterates through each agent
     for (int i = 0; i < nagents; i++) {
         struct Agent *agent = &agents[i];
-        printf("Simulating agent %d x=%f y=%f direction = %f\n", i, agent->x, agent->y, agent->direction);
         // deposit trail
         float updated_trail = fmin(255, next_map[(int) agent->y * width + (int) agent->x] + trail_deposit_rate);
         next_map[(int) agent->y * width + (int) agent->x] = updated_trail;
-        printf("Updated map[%d][%d] to %f\n", (int) agent->y, (int) agent->x, updated_trail);
 
         // turn to follow trail
         // follows the highest intesity in the three directions
