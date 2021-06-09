@@ -60,7 +60,7 @@ void write_image(float *map, int width, int height, int fd) {
         fprintf(stderr, "Could not open file %s\n", name);
         exit(1);
     }
-    fprintf(fp, "P5\n%d %d\n100\n", width, height);
+    fprintf(fp, "P5\n%d %d\n255\n", width, height);
     fwrite(rounded_map, sizeof(uint8_t), width * height, fp);
     fclose(fp);*/
 
