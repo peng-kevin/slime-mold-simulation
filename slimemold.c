@@ -16,7 +16,6 @@
 #define CRF "20"
 #define ENCODER_PRESET "fast"
 
-int logfd;
 
 int parse_int(char *str, char *val, int min) {
     int n = atoi(str);
@@ -39,6 +38,7 @@ float parse_float(char *str, char *val, float min) {
 }
 
 void write_image(float *map, int width, int height, int fd) {
+    ssize_t written;
     // convert float array to byte array
     uint8_t *rounded_map =  malloc (width * height * sizeof(*rounded_map));
     for (int i = 0; i < width * height; i++) {
@@ -46,10 +46,8 @@ void write_image(float *map, int width, int height, int fd) {
     }
     // write the header
     dprintf(fd, "P5\n%d %d 255\n", width, height);
-    // log the header to debug invalud max val;
-    dprintf(logfd, "P5\n%d %d 255\n", width, height);
     //write the image
-    ssize_t written = write(fd, rounded_map, width * height * sizeof(uint8_t));
+    written = write(fd, rounded_map, width * height * sizeof(uint8_t));
     if (written != width * height) {
         fprintf(stderr, "Error writing to pipe\n");
         exit(1);
@@ -79,8 +77,6 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
 }
 
 int main(int argc, char *argv[]) {
-    // for debugging
-    logfd = open("slimemold.log", O_WRONLY | O_CREAT | O_TRUNC, 0666);
     // Parse the command line arguments
     if (argc != 13) {
         fprintf(stderr, "usage: %s width height fps seconds nagents movement_speed "
@@ -121,7 +117,7 @@ int main(int argc, char *argv[]) {
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
-        execlp("ffmpeg", "ffmpeg", "-hide_banner", "-loglevel", FFMPEG_LOG_LEVEL, "-f", "image2pipe", "-r", fpsbuf, "-i", "pipe:", "-c:v", CODEC, CODEC_PARAM, CODEC_LOG_LEVEL, "-crf", CRF, "-preset", ENCODER_PRESET, filename, (char *) NULL);
+        execlp("ffmpeg", "ffmpeg", "-hide_banner", "-loglevel", FFMPEG_LOG_LEVEL, "-f", "image2pipe", "-pix_fmt", "gray", "-c:v", "pgm", "-framerate", fpsbuf, "-i", "pipe:", "-c:v", CODEC, CODEC_PARAM, CODEC_LOG_LEVEL, "-crf", CRF, "-preset", ENCODER_PRESET, filename, (char *) NULL);
         perror("Failed to execute ffmpeg");
         exit(1);
     }
@@ -153,7 +149,6 @@ int main(int argc, char *argv[]) {
     free(map[1]);
     free(agents);
     close(outfd);
-    close(logfd);
 
     // wait for ffmpeg to finish
     waitpid(pid, NULL, 0);
