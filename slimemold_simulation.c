@@ -67,6 +67,13 @@ void move_and_check_wall_collision (struct Agent *agent, float movement_speed, i
     agent->x = new_x;
     agent->y = new_y;
 }
+
+void evaporate_trail (float * next_map, float evaporation_rate, int width, int height) {
+    for (int i = 0; i < width * height; i++) {
+        next_map[i] = fmax(0, next_map[i] - evaporation_rate);
+    }
+}
+
 void simulate_step(float *map, float *next_map, struct Agent *agents, int width,
                     int height, int nagents, float movement_speed,
                     float trail_deposit_rate, float movement_noise,
@@ -101,4 +108,6 @@ void simulate_step(float *map, float *next_map, struct Agent *agents, int width,
 
         move_and_check_wall_collision(agent, movement_speed, width, height);
     }
+
+    evaporate_trail(next_map, evaporation_rate, width, height);
 }
