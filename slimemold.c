@@ -8,6 +8,7 @@
 #include <math.h>
 #include <sys/wait.h>
 #include "simulation.h"
+#include "util.h"
 
 #define FFMPEG_LOG_LEVEL "info"
 #define CODEC "libx265"
@@ -40,7 +41,7 @@ float parse_float(char *str, char *val, float min) {
 void write_image(float *map, int width, int height, int fd) {
     ssize_t written;
     // convert float array to byte array
-    uint8_t *rounded_map =  malloc (width * height * sizeof(*rounded_map));
+    uint8_t *rounded_map =  malloc_or_die(width * height * sizeof(*rounded_map));
     for (int i = 0; i < width * height; i++) {
         rounded_map[i] = (uint8_t) roundf(map[i]);
     }
@@ -70,9 +71,9 @@ void write_image(float *map, int width, int height, int fd) {
 void intialize_agents(struct Agent *agents, int nagents, int width, int height) {
     // give each agent a random position and direction
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = (((float)rand())/RAND_MAX) * width;
-        agents[i].y = (((float)rand())/RAND_MAX) * height;
-        agents[i].direction = (((float)rand())/RAND_MAX) * (2 * M_PI);
+        agents[i].x = randf(0, width);
+        agents[i].y = randf(0, height);
+        agents[i].direction = randf(0, 2 * M_PI);
     }
 }
 
@@ -125,28 +126,29 @@ int main(int argc, char *argv[]) {
     int outfd = pipefd[1];
     srand(time(0));
 
-    // allocate space for the grid, one for current, one for next
-    float *map[2];
-    map[0] = calloc(width * height, sizeof(*(map[0])));
-    map[1] = calloc(width * height, sizeof(*(map[1])));
+    // allocate space for the grid
+    struct Map map;
+    map.width = width;
+    map.height = height;
+    map.grid = malloc_or_die(map.width * map.height * sizeof(*(map.grid)));
+    // zero out memory
+    memset(map.grid, 0, map.width * map.height * sizeof(*(map.grid)));
+
 
     // intialize agents
-    struct Agent *agents = malloc(nagents * sizeof(*agents));
+    struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
     intialize_agents(agents, nagents, width, height);
     for (int i = 0; i < seconds * fps; i++) {
         //printf("----Cycle %d----\n", i);
-        //switch which map is the current and which is next each step
-        int cur = i % 2;
         // normalize the parameters by fps
-        simulate_step(map[cur], map[1 - cur], agents, width, height, nagents,
+        simulate_step(map, agents, nagents,
                         movement_speed/fps, trail_deposit_rate/fps,
                         movement_noise/fps, turn_rate/fps, dispersion_rate/fps,
                         evaporation_rate/fps);
-        write_image(map[1 - cur], width, height, outfd);
+        write_image(map.grid, map.width, map.height, outfd);
     }
 
-    free(map[0]);
-    free(map[1]);
+    free(map.grid);
     free(agents);
     close(outfd);
 

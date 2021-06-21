@@ -7,8 +7,14 @@ struct Agent {
     float y;
 };
 
-void simulate_step(float *map, float *next_map, struct Agent *agents, int width,
-                    int height, int nagents, float movement_speed,
-                    float trail_deposit_rate, float movement_noise,
-                    float turn_rate, float dispersion_rate, float evaporation_rate);
+struct Map {
+    float *grid;
+    int width;
+    int height;
+};
+
+void simulate_step(struct Map map, struct Agent *agents,
+                    int nagents, float movement_speed, float trail_deposit_rate,
+                    float movement_noise, float turn_rate, float dispersion_rate,
+                    float evaporation_rate);
 #endif
