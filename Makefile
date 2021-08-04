@@ -9,7 +9,7 @@ endif
 
 all: $(BIN)
 
-slimemold: slimemold.c slimemold_simulation.c util.c
+slimemold: slimemold.c slimemold_simulation.c util.c encode_video.c
 	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 clean:

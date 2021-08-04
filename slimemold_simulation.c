@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "simulation.h"
+#include "slimemold_simulation.h"
 #include "util.h"
 
 #define LOOK_AHEAD 1.5

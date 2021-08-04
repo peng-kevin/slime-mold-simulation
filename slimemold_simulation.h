@@ -1,5 +1,5 @@
-#ifndef SIMULATION_H
-#define SIMULATION_H
+#ifndef SLIMEMOLD_SIMULATION_H
+#define SLIMEMOLD_SIMULATION_H
 
 struct Agent {
     float direction;

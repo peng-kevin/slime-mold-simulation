@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 #include <math.h>
 #include <sys/wait.h>
-#include "simulation.h"
+#include "slimemold_simulation.h"
+#include "encode_video.h"
 #include "util.h"
 
 #define FFMPEG_LOG_LEVEL "info"
@@ -16,7 +16,6 @@
 #define CODEC_LOG_LEVEL "log-level=error"
 #define CRF "20"
 #define ENCODER_PRESET "fast"
-
 
 int parse_int(char *str, char *val, int min) {
     int n = atoi(str);
@@ -99,31 +98,13 @@ int main(int argc, char *argv[]) {
     char *filename = argv[12];
     printf("\n");
 
-    // create the pipe
-    int pipefd[2];
-    if (pipe(pipefd) == -1) {
-        perror("Failed to create pipe");
+    //initiate FFmpeg
+    int outfd;
+    pid_t pid;
+    if (open_pipe(fps, filename, FAST, &outfd, &pid) == -1) {
+        perror("Error");
         exit(1);
     }
-    //initiate ffmpeg
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror("Fork failed");
-        exit(1);
-    } else if(pid == 0) {
-        // convert arguments to strings
-        char fpsbuf[256];
-        sprintf(fpsbuf, "%d", fps);
-
-        close(pipefd[1]);
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
-        execlp("ffmpeg", "ffmpeg", "-hide_banner", "-loglevel", FFMPEG_LOG_LEVEL, "-f", "image2pipe", "-pix_fmt", "gray", "-c:v", "pgm", "-framerate", fpsbuf, "-i", "pipe:", "-c:v", CODEC, CODEC_PARAM, CODEC_LOG_LEVEL, "-crf", CRF, "-preset", ENCODER_PRESET, filename, (char *) NULL);
-        perror("Failed to execute ffmpeg");
-        exit(1);
-    }
-    close(pipefd[0]);
-    int outfd = pipefd[1];
     srand(time(0));
 
     // allocate space for the grid
@@ -150,8 +131,5 @@ int main(int argc, char *argv[]) {
 
     free(map.grid);
     free(agents);
-    close(outfd);
-
-    // wait for ffmpeg to finish
-    waitpid(pid, NULL, 0);
+    close_pipe(outfd, pid);
 }
