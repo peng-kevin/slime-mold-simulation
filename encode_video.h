@@ -32,5 +32,6 @@ int open_pipe(int fps, char* filename, enum EncoderPreset preset, int* outfd, pi
  * Cleans up by closing the write end of the pipe and waits for the child to exit.
  * @param[in] outfd File descriptor for the write end of the pipe
  * @param[in] pid Pid of the child process
+ */
 void close_pipe(int outfd, pid_t pid);
 #endif
