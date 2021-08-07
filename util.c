@@ -11,7 +11,7 @@ void* malloc_or_die(size_t size) {
     return ptr;
 }
 
-// gets a random float between min and max, not thread safe
-float randf(float min, float max) {
-    return min + (((float)rand())/RAND_MAX) * (max - min);
+// gets a random double between min and max, not thread safe
+double randd(double min, double max) {
+    return min + (((double)rand())/RAND_MAX) * (max - min);
 }

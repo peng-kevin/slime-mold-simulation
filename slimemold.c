@@ -27,22 +27,22 @@ int parse_int(char *str, char *val, int min) {
     return n;
 }
 
-float parse_float(char *str, char *val, float min) {
-    float n = strtof(str, NULL);
+double parse_double(char *str, char *val, double min) {
+    double n = strtod(str, NULL);
     if(n < min) {
-        fprintf(stderr, "Error: %s < %f\n", val, min);
+        fprintf(stderr, "Error: %s < %lf\n", val, min);
         exit(1);
     }
-    printf("%s=%f\n", val, n);
+    printf("%s=%lf\n", val, n);
     return n;
 }
 
-void write_image(float *map, int width, int height, int fd) {
+void write_image(double *map, int width, int height, int fd) {
     ssize_t written;
-    // convert float array to byte array
+    // convert double array to byte array
     uint8_t *rounded_map =  malloc_or_die(width * height * sizeof(*rounded_map));
     for (int i = 0; i < width * height; i++) {
-        rounded_map[i] = (uint8_t) roundf(map[i]);
+        rounded_map[i] = (uint8_t) round(map[i]);
     }
     // write the header
     dprintf(fd, "P5\n%d %d 255\n", width, height);
@@ -70,9 +70,9 @@ void write_image(float *map, int width, int height, int fd) {
 void intialize_agents(struct Agent *agents, int nagents, int width, int height) {
     // give each agent a random position and direction
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = randf(0, width);
-        agents[i].y = randf(0, height);
-        agents[i].direction = randf(0, 2 * M_PI);
+        agents[i].x = randd(0, width);
+        agents[i].y = randd(0, height);
+        agents[i].direction = randd(0, 2 * M_PI);
     }
 }
 
@@ -89,12 +89,12 @@ int main(int argc, char *argv[]) {
     int fps = parse_int(argv[3], "fps", 1);
     int seconds = parse_int(argv[4], "seconds", 1);
     int nagents = parse_int(argv[5], "nagents", 1);
-    float movement_speed = parse_float(argv[6], "movement_speed", 0);
-    float trail_deposit_rate = parse_float(argv[7], "trail_deposit_rate", 0);
-    float movement_noise = parse_float(argv[8], "movement_noise", 0);
-    float turn_rate = parse_float(argv[9], "turn_rate", 0);
-    float dispersion_rate = parse_float(argv[10], "dispersion_rate", 0);
-    float evaporation_rate = parse_float(argv[11], "evaporation_rate", 0);
+    double movement_speed = parse_double(argv[6], "movement_speed", 0);
+    double trail_deposit_rate = parse_double(argv[7], "trail_deposit_rate", 0);
+    double movement_noise = parse_double(argv[8], "movement_noise", 0);
+    double turn_rate = parse_double(argv[9], "turn_rate", 0);
+    double dispersion_rate = parse_double(argv[10], "dispersion_rate", 0);
+    double evaporation_rate = parse_double(argv[11], "evaporation_rate", 0);
     char *filename = argv[12];
     printf("\n");
 
