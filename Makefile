@@ -11,7 +11,7 @@ CFLAGS := -Wall -Wextra -Werror -MMD
 ifeq ($(D), 1)
 CFLAGS +=  -g -O0
 else
-CFLAGS +=  -O2
+CFLAGS +=  -O3 -march=native
 endif
 
 # make V=1 to compile in verbose mode
