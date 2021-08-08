@@ -127,12 +127,12 @@ void prepare_and_write_image (double* map, int width, int height, int resolution
 void intialize_agents(struct Agent *agents, int nagents, int width, int height) {
     // give each agent a random position and direction
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = randd(0, width);
-        agents[i].y = randd(0, height);
-        agents[i].direction = randd(0, 2 * M_PI);
-        //agents[i].x = 0.1 * width;
-        //agents[i].y = 0.5 * height;
-        //agents[i].direction = 0;
+        //agents[i].x = randd(0, width);
+        //agents[i].y = randd(0, height);
+        //agents[i].direction = randd(0, 2 * M_PI);
+        agents[i].x = 0.1 * width;
+        agents[i].y = 0.5 * height;
+        agents[i].direction = 0;
     }
 }
 
