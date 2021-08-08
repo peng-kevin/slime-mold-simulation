@@ -7,7 +7,6 @@
 
 #define LOOK_AHEAD 1.5
 #define EPSILON 0.001
-#define MAX_TRAIL 255
 // 10 degrees
 #define SCATTER_BUFFER M_PI/18
 // get the next x after moving distance units in direction
@@ -24,9 +23,9 @@ double bound(double n, double min, double max) {
     return fmax(min, fmin(max, n));
 }
 
-void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate) {
+void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate, double trail_max) {
     int index = (int) agent->y * map.width + (int) agent->x;
-    double updated_trail = fmin(MAX_TRAIL, map.grid[index] + trail_deposit_rate);
+    double updated_trail = fmin(trail_max, map.grid[index] + trail_deposit_rate);
     map.grid[index] = updated_trail;
 }
 
@@ -67,24 +66,21 @@ void move_and_check_wall_collision (struct Agent *agent, double movement_speed, 
 
 void evaporate_trail (struct Map map, double evaporation_rate) {
     for (int i = 0; i < map.width * map.height; i++) {
-        map.grid[i] = fmax(0, map.grid[i] - evaporation_rate);
+        map.grid[i] *= (1 - evaporation_rate);
     }
 }
 
-void simulate_step(struct Map map, struct Agent *agents, int nagents, double movement_speed,
-                    double trail_deposit_rate, double movement_noise,
-                    double turn_rate, double dispersion_rate, double evaporation_rate) {
-    //suppress unused warning
-    // TODO remove later
-    (void) movement_noise;
-    (void) turn_rate;
-    (void) dispersion_rate;
+void simulate_step(struct Map map, struct Agent *agents, int nagents, struct Behavior behavior) {
+    // TODO to be used
+    (void) behavior.movement_noise;
+    (void) behavior.turn_rate;
+    (void) behavior.dispersion_rate;
     // iterates through each agent
     for (int i = 0; i < nagents; i++) {
         struct Agent *agent = &agents[i];
-        deposit_trail(map, agent, trail_deposit_rate);
-        move_and_check_wall_collision(agent, movement_speed, map);
+        deposit_trail(map, agent, behavior.trail_deposit_rate, behavior.trail_max);
+        move_and_check_wall_collision(agent, behavior.movement_speed, map);
     }
 
-    evaporate_trail(map, evaporation_rate);
+    evaporate_trail(map, behavior.evaporation_rate);
 }

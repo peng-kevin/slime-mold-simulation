@@ -13,8 +13,17 @@ struct Map {
     int height;
 };
 
+// Parameters that control the simulation
+struct Behavior {
+    double movement_speed;
+    double trail_deposit_rate;
+    double movement_noise;
+    double turn_rate;
+    double dispersion_rate;
+    double evaporation_rate;
+    double trail_max;
+};
+
 void simulate_step(struct Map map, struct Agent *agents,
-                    int nagents, double movement_speed, double trail_deposit_rate,
-                    double movement_noise, double turn_rate, double dispersion_rate,
-                    double evaporation_rate);
+                    int nagents, struct Behavior behavior);
 #endif
