@@ -48,7 +48,12 @@ struct Behavior normalize_behavior(struct Behavior behavior, int factor, int fps
     behavior_N.movement_speed = behavior.movement_speed / fps;
     // because each square is smaller, this is factor^2 / (factor * fps)
     behavior_N.trail_deposit_rate = behavior.trail_deposit_rate * factor / fps;
-    behavior_N.movement_noise = behavior.movement_noise; //TODO
+    /*
+     * using the Central Limit Theorem, we find that the distribution after
+     * summing n random numbers has a standard deviation of sqrt(n)*sigma, so
+     * we need to divide sigma by sqrt(n) to keep the distribution the same
+     */
+    behavior_N.movement_noise = behavior.movement_noise / sqrt(factor * fps);
     // Same time to turn same amount
     behavior_N.turn_rate = behavior.turn_rate / (factor * fps);
     behavior_N.dispersion_rate = behavior.dispersion_rate; //TODO
@@ -165,8 +170,7 @@ int main(int argc, char *argv[]) {
         perror("Error");
         exit(1);
     }
-    // TODO set seed
-    srand(0);
+    srand(time(0));
 
     // normalize behavior
     struct Behavior behavior_normalized = normalize_behavior(behavior, resolution_factor, fps);

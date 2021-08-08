@@ -11,4 +11,8 @@ void* malloc_or_die(size_t size);
  */
 double randd(double min, double max);
 
+/**
+ * Returns a random number selected from a normal distribution
+ */
+double normal_dist(double sigma);
 #endif
