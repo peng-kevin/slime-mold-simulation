@@ -29,6 +29,10 @@ void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rat
     map.grid[index] = updated_trail;
 }
 
+void add_noise_to_movement(struct Agent *agent, double movement_noise) {
+    agent->direction += normal_dist(movement_noise);
+}
+
 void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, struct Map map) {
     if (*new_x < 0) {
         *new_x = 0;
@@ -75,7 +79,12 @@ void simulate_step(struct Map map, struct Agent *agents, int nagents, struct Beh
     (void) behavior.movement_noise;
     (void) behavior.turn_rate;
     (void) behavior.dispersion_rate;
-    // iterates through each agent
+    // Sets direction of each agent before depositing a trail
+    for (int i = 0; i < nagents; i++) {
+        struct Agent *agent = &agents[i];
+        add_noise_to_movement(agent, behavior.movement_noise);
+    }
+
     for (int i = 0; i < nagents; i++) {
         struct Agent *agent = &agents[i];
         deposit_trail(map, agent, behavior.trail_deposit_rate, behavior.trail_max);
