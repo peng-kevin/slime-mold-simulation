@@ -7,8 +7,8 @@
 void* malloc_or_die(size_t size);
 
 /**
- * gets a random double between min and max, not thread safe
+ * gets a random double between min and max, thread safe with different seeds
  */
-double randd(double min, double max);
+double randd(double min, double max, unsigned int *seedp);
 
 #endif

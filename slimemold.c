@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -131,10 +132,11 @@ void prepare_and_write_image (double* map, int width, int height, int resolution
 
 void intialize_agents(struct Agent *agents, int nagents, int width, int height) {
     // give each agent a random position and direction
+    unsigned int seed = time(0);
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = randd(0, width);
-        agents[i].y = randd(0, height);
-        agents[i].direction = randd(0, 2 * M_PI);
+        agents[i].x = randd(0, width, &seed);
+        agents[i].y = randd(0, height, &seed);
+        agents[i].direction = randd(0, 2 * M_PI, &seed);
         //agents[i].x = 0.5 * width;
         //agents[i].y = 0.5 * height;
         //agents[i].direction = 0;
@@ -175,8 +177,12 @@ int main(int argc, char *argv[]) {
         perror("Error");
         exit(1);
     }
-    //srand(0);
-    srand(time(0));
+    // create an array of seeds for the threads
+    unsigned int *seeds = malloc_or_die(omp_get_max_threads() * sizeof(*seeds));
+    time_t curtime = time(0);
+    for (int i = 0; i < omp_get_max_threads(); i++) {
+        seeds[i] = curtime ^ (i + 1);
+    }
 
     // normalize behavior
     struct Behavior behavior_normalized = normalize_behavior(behavior, resolution_factor, fps);
@@ -205,7 +211,7 @@ int main(int argc, char *argv[]) {
         // Perform resolution_factor cycles per frame
         for (int j = 0; j < resolution_factor; j++) {
             //printf("----Cycle %d----\n", i*resolution_factor + j);
-            simulate_step(&map, agents, nagents, behavior_normalized);
+            simulate_step(&map, agents, nagents, behavior_normalized, seeds);
         }
         prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, outfd);
     }

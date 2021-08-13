@@ -1,4 +1,5 @@
 #include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,37 +33,45 @@ void disperse_grid(double *grid, double *next_grid, int width, int height, doubl
     // handles the center cells using a FTCS scheme.
     // finds the sum of the difference between the current and adjacent cells
     // and moves the current value by that difference scaled by the dispersion_rate
-    for (int row = 1; row < height - 1; row++) {
-        for (int col = 1; col < width - 1; col++) {
-            int index = row * width + col;
-            // sum the four adjacent cell
-            next_grid[index] = grid[row * width + (col - 1)];
-            next_grid[index] += grid[row * width + (col + 1)];
-            next_grid[index] += grid[(row - 1) * width + col];
-            next_grid[index] += grid[(row + 1) * width + col];
-            // multiply the current sum by the dispersion_rate
-            next_grid[index] *= dispersion_rate;
-            // add (1 - 4 * dispersion_rate) * center cell
-            next_grid[index] += (1 - 4 * dispersion_rate) * grid[row * width + col];
+    #pragma omp parallel
+    {
+        #pragma omp for nowait
+        for (int row = 1; row < height - 1; row++) {
+            for (int col = 1; col < width - 1; col++) {
+                int index = row * width + col;
+                // sum the four adjacent cell
+                next_grid[index] = grid[row * width + (col - 1)];
+                next_grid[index] += grid[row * width + (col + 1)];
+                next_grid[index] += grid[(row - 1) * width + col];
+                next_grid[index] += grid[(row + 1) * width + col];
+                // multiply the current sum by the dispersion_rate
+                next_grid[index] *= dispersion_rate;
+                // add (1 - 4 * dispersion_rate) * center cell
+                next_grid[index] += (1 - 4 * dispersion_rate) * grid[row * width + col];
+            }
         }
-    }
-    // handles boundary condition
-    // it is organized like this to make it easier to change the boundary condition
-    // top row
-    for (int col = 1; col < width - 1; col++) {
-        next_grid[0 * width + col] = 0;
-    }
-    // bottom row
-    for (int col = 1; col < width - 1; col++) {
-        next_grid[(height - 1) * width + col] = 0;
-    }
-    // left column
-    for (int row = 1; row < height - 1; row++) {
-        next_grid[row * width + 0] = 0;
-    }
-    // right column
-    for (int row = 1; row < height - 1; row++) {
-        next_grid[row * width + (width - 1)] = 0;
+        // handles boundary condition
+        // it is organized like this to make it easier to change the boundary condition
+        // top row
+        #pragma omp for nowait
+        for (int col = 1; col < width - 1; col++) {
+            next_grid[0 * width + col] = 0;
+        }
+        // bottom row
+        #pragma omp for nowait
+        for (int col = 1; col < width - 1; col++) {
+            next_grid[(height - 1) * width + col] = 0;
+        }
+        // left column
+        #pragma omp for nowait
+        for (int row = 1; row < height - 1; row++) {
+            next_grid[row * width + 0] = 0;
+        }
+        // right column
+        #pragma omp for nowait
+        for (int row = 1; row < height - 1; row++) {
+            next_grid[row * width + (width - 1)] = 0;
+        }
     }
     // top left corner
     next_grid[0 * width + 0] = 0;
@@ -112,63 +121,71 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double movement_speed, 
     agent->direction = max_direction;
 }
 
-void add_noise_to_movement(struct Agent *agent, double movement_noise) {
+void add_noise_to_movement(struct Agent *agent, double movement_noise, unsigned int *seedp) {
     // returns uniform distribution with correct standard deviation
-    agent->direction += randd(-movement_noise * sqrt(3), movement_noise * sqrt(3));
+    agent->direction += randd(-movement_noise * sqrt(3), movement_noise * sqrt(3), seedp);
 }
 
-void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, struct Map map) {
+void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, struct Map map, unsigned int *seedp) {
     if (*new_x < EPSILON) {
         *new_x = EPSILON;
         // scatter off of left wall
-        agent->direction = randd(-M_PI_2 + SCATTER_BUFFER, M_PI_2 - SCATTER_BUFFER);
+        agent->direction = randd(-M_PI_2 + SCATTER_BUFFER, M_PI_2 - SCATTER_BUFFER, seedp);
     } else if (*new_x > map.width - EPSILON) {
         // a little is subtracted from width because x is rounded down and
         // map[y][width] would be out of bound
         *new_x = map.width - EPSILON;
         // scatter off of right wall
-        agent->direction = randd(M_PI_2 + SCATTER_BUFFER, 3 * M_PI_2 - SCATTER_BUFFER);
+        agent->direction = randd(M_PI_2 + SCATTER_BUFFER, 3 * M_PI_2 - SCATTER_BUFFER, seedp);
     }
     // note that the directions are a little weird since y = 0 is the top wall
     if (*new_y < EPSILON) {
         *new_y = EPSILON;
         // scatter off of top wall
-        agent->direction = randd(SCATTER_BUFFER, M_PI - SCATTER_BUFFER);
+        agent->direction = randd(SCATTER_BUFFER, M_PI - SCATTER_BUFFER, seedp);
     } else if (*new_y > map.height - EPSILON) {
         *new_y = map.height - EPSILON;
         // scatter off of bottom wall
-        agent->direction = randd(M_PI + SCATTER_BUFFER, 2 * M_PI - SCATTER_BUFFER);
+        agent->direction = randd(M_PI + SCATTER_BUFFER, 2 * M_PI - SCATTER_BUFFER, seedp);
     }
 }
 
-void move_and_check_wall_collision (struct Agent *agent, double movement_speed, struct Map map) {
+void move_and_check_wall_collision (struct Agent *agent, double movement_speed, struct Map map, unsigned int *seedp) {
     // move in direction
     double new_x = next_x(agent->x, movement_speed, agent->direction);
     double new_y = next_y(agent->y, movement_speed, agent->direction);
     // check for collision
-    check_wall_collision(agent, &new_x, &new_y, map);
+    check_wall_collision(agent, &new_x, &new_y, map, seedp);
     // update position
     agent->x = new_x;
     agent->y = new_y;
 }
 
 void evaporate_trail (struct Map map, double evaporation_rate) {
+    #pragma omp parallel for
     for (int i = 0; i < map.width * map.height; i++) {
         map.grid[i] *= (1 - evaporation_rate);
     }
 }
 
-void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior) {
-    // Sets direction of each agent before depositing a trail
-    for (int i = 0; i < nagents; i++) {
-        struct Agent *agent = &agents[i];
-        turn_uptrail(agent, behavior.turn_rate, behavior.movement_speed, *p_map);
-        add_noise_to_movement(agent, behavior.movement_noise);
+void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior, unsigned int *seeds) {
+    // turns and moves each agent
+    #pragma omp parallel
+    {
+        // copies the value to avoid false sharing
+        unsigned int seed = seeds[omp_get_thread_num()];
+        #pragma omp for nowait
+        for (int i = 0; i < nagents; i++) {
+            struct Agent *agent = &agents[i];
+            turn_uptrail(agent, behavior.turn_rate, behavior.movement_speed, *p_map);
+            add_noise_to_movement(agent, behavior.movement_noise, &seed);
+            move_and_check_wall_collision(agent, behavior.movement_speed, *p_map, &seed);
+        }
+        seeds[omp_get_thread_num()] = seed;
     }
-
+    //TODO make map thread-safe
     for (int i = 0; i < nagents; i++) {
         struct Agent *agent = &agents[i];
-        move_and_check_wall_collision(agent, behavior.movement_speed, *p_map);
         deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
     }
 
