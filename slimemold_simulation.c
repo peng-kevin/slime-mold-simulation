@@ -100,7 +100,7 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double movement_speed, 
         double ahead_x = next_x(agent->x, movement_speed*LOOK_AHEAD, dir);
         double ahead_y = next_y(agent->y, movement_speed*LOOK_AHEAD, dir);
         // check if it is in bounds
-        if (ahead_x < 0 || ahead_x >= map.width || ahead_y < 0 || ahead_y >= map.height) {
+        if (ahead_x < EPSILON || ahead_x > map.width - EPSILON || ahead_y < EPSILON || ahead_y > map.height - EPSILON) {
             continue;
         }
         int index = get_index(map, ahead_x, ahead_y);
@@ -117,11 +117,11 @@ void add_noise_to_movement(struct Agent *agent, double movement_noise) {
 }
 
 void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, struct Map map) {
-    if (*new_x < 0) {
-        *new_x = 0;
+    if (*new_x < EPSILON) {
+        *new_x = EPSILON;
         // scatter off of left wall
         agent->direction = randd(-M_PI_2 + SCATTER_BUFFER, M_PI_2 - SCATTER_BUFFER);
-    } else if (*new_x >= map.width) {
+    } else if (*new_x > map.width - EPSILON) {
         // a little is subtracted from width because x is rounded down and
         // map[y][width] would be out of bound
         *new_x = map.width - EPSILON;
@@ -129,11 +129,11 @@ void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, st
         agent->direction = randd(M_PI_2 + SCATTER_BUFFER, 3 * M_PI_2 - SCATTER_BUFFER);
     }
     // note that the directions are a little weird since y = 0 is the top wall
-    if (*new_y < 0) {
-        *new_y = 0;
+    if (*new_y < EPSILON) {
+        *new_y = EPSILON;
         // scatter off of top wall
         agent->direction = randd(SCATTER_BUFFER, M_PI - SCATTER_BUFFER);
-    } else if (*new_y >= map.height) {
+    } else if (*new_y > map.height - EPSILON) {
         *new_y = map.height - EPSILON;
         // scatter off of bottom wall
         agent->direction = randd(M_PI + SCATTER_BUFFER, 2 * M_PI - SCATTER_BUFFER);
