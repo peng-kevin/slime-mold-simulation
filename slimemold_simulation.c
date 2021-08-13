@@ -5,8 +5,8 @@
 #include "slimemold_simulation.h"
 #include "util.h"
 
-#define LOOK_AHEAD 3
 #define EPSILON 0.001
+#define LOOK_AHEAD 3
 // 10 degrees
 #define SCATTER_BUFFER M_PI/18
 // get the next x after moving distance units in direction
@@ -113,7 +113,8 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double movement_speed, 
 }
 
 void add_noise_to_movement(struct Agent *agent, double movement_noise) {
-    agent->direction += normal_dist(movement_noise);
+    // returns uniform distribution with correct standard deviation
+    agent->direction += randd(-movement_noise * sqrt(3), movement_noise * sqrt(3));
 }
 
 void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, struct Map map) {
@@ -167,8 +168,8 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
 
     for (int i = 0; i < nagents; i++) {
         struct Agent *agent = &agents[i];
-        deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
         move_and_check_wall_collision(agent, behavior.movement_speed, *p_map);
+        deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
     }
 
     disperse_trail(p_map, behavior.dispersion_rate);

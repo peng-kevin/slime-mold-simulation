@@ -7,6 +7,7 @@
 #include <math.h>
 #include <sys/wait.h>
 #include <limits.h>
+#include <fenv.h>
 
 #include "slimemold_simulation.h"
 #include "encode_video.h"
@@ -195,13 +196,15 @@ int main(int argc, char *argv[]) {
     memset(map.grid, 0, map.width * map.height * sizeof(*(map.grid)));
 
     // intialize agents
+    printf("Generating agents...");
     struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
     intialize_agents(agents, nagents, map.width, map.height);
+    printf("done\n");
     // main simulation loop
     for (int i = 0; i < seconds * fps; i++) {
-        //printf("----Cycle %d----\n", i);
         // Perform resolution_factor cycles per frame
         for (int j = 0; j < resolution_factor; j++) {
+            //printf("----Cycle %d----\n", i*resolution_factor + j);
             simulate_step(&map, agents, nagents, behavior_normalized);
         }
         prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, outfd);

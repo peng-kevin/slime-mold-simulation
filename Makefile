@@ -5,7 +5,7 @@ SRCS := slimemold.c slimemold_simulation.c util.c encode_video.c
 LDLIBS := -lm
 objs = $(patsubst %.c,$(BUILDDIR)/%.o, $(SRCS))
 
-CFLAGS := -Wall -Wextra -Werror -MMD
+CFLAGS := -Wall -Wextra -Werror -pedantic-errors -MMD
 
 # make D=1 to compile with debug flags
 ifeq ($(D), 1)
