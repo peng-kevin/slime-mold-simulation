@@ -5,8 +5,8 @@
 #include "slimemold_simulation.h"
 #include "util.h"
 
-#define LOOK_AHEAD 1
-#define EPSILON 0.00001
+#define LOOK_AHEAD 3
+#define EPSILON 0.001
 // 10 degrees
 #define SCATTER_BUFFER M_PI/18
 // get the next x after moving distance units in direction
@@ -95,10 +95,14 @@ void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rat
 void turn_uptrail(struct Agent *agent, double turn_rate, double movement_speed, struct Map map) {
     double max_direction = agent->direction;
     double max_trail = -INFINITY;
-    for (double i = -1; i <= 1; i += 0.25) {
+    for (double i = -1; i <= 1; i += 0.5) {
         double dir = agent->direction + (i * turn_rate);
         double ahead_x = next_x(agent->x, movement_speed*LOOK_AHEAD, dir);
         double ahead_y = next_y(agent->y, movement_speed*LOOK_AHEAD, dir);
+        // check if it is in bounds
+        if (ahead_x < 0 || ahead_x >= map.width || ahead_y < 0 || ahead_y >= map.height) {
+            continue;
+        }
         int index = get_index(map, ahead_x, ahead_y);
         if(map.grid[index] > max_trail) {
             max_trail = map.grid[index];
