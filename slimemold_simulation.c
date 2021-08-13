@@ -23,105 +23,108 @@ double bound(double n, double min, double max) {
     return fmax(min, fmin(max, n));
 }
 
-// uses a heat equation with boundary conditions deriviative = 0
-// warning: changes the map.grid pointer
-void disperse_trail(struct Map map, double dispersion_rate) {
-    // allocates a new map
-    double *next_map = malloc_or_die(map.width * map.height * sizeof(*next_map));
+void disperse_grid(double *grid, double *next_grid, int width, int height, double dispersion_rate) {
     // handles the center cells using a FTCS scheme.
     // finds the sum of the difference between the current and adjacent cells
     // and moves the current value by that difference scaled by the dispersion_rate
-    for (int row = 1; row < map.height - 1; row++) {
-        for (int col = 1; col < map.width - 1; col++) {
-            int index = row * map.width + col;
+    for (int row = 1; row < height - 1; row++) {
+        for (int col = 1; col < width - 1; col++) {
+            int index = row * width + col;
             // sum the four adjacent cell
-            next_map[index] = map.grid[row * map.width + (col - 1)];
-            next_map[index] += map.grid[row * map.width + (col + 1)];
-            next_map[index] += map.grid[(row - 1) * map.width + col];
-            next_map[index] += map.grid[(row + 1) * map.width + col];
+            next_grid[index] = grid[row * width + (col - 1)];
+            next_grid[index] += grid[row * width + (col + 1)];
+            next_grid[index] += grid[(row - 1) * width + col];
+            next_grid[index] += grid[(row + 1) * width + col];
             // multiply the current sum by the dispersion_rate
-            next_map[index] *= dispersion_rate;
+            next_grid[index] *= dispersion_rate;
             // add (1 - 4 * dispersion_rate) * center cell
-            next_map[index] += (1 - 4 * dispersion_rate) * map.grid[row * map.width + col];
+            next_grid[index] += (1 - 4 * dispersion_rate) * grid[row * width + col];
         }
     }
     // handles boundary condition
     // top row
-    for (int col = 1; col < map.width - 1; col++) {
-        int index = 0 * map.width + col;
+    for (int col = 1; col < width - 1; col++) {
+        int index = 0 * width + col;
         // sum adjacent columns
-        next_map[index] = map.grid[0 * map.width + (col - 1)];
-        next_map[index] += map.grid[0 * map.width + (col + 1)];
+        next_grid[index] = grid[0 * width + (col - 1)];
+        next_grid[index] += grid[0 * width + (col + 1)];
         // mirror lower column
-        next_map[index] += 2*map.grid[1 * map.width + col];
+        next_grid[index] += 2*grid[1 * width + col];
         // multiply the current sum by the dispersion_rate
-        next_map[index] *= dispersion_rate;
+        next_grid[index] *= dispersion_rate;
         // add (1 - 4 * dispersion_rate) * center cell
-        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[0 * map.width + col];
+        next_grid[index] += (1 - 4 * dispersion_rate) * grid[0 * width + col];
     }
     // bottom row
-    for (int col = 1; col < map.width - 1; col++) {
-        int index = (map.height - 1) * map.width + col;
+    for (int col = 1; col < width - 1; col++) {
+        int index = (height - 1) * width + col;
         // sum adjacent columns
-        next_map[index] = map.grid[(map.height - 1) * map.width + (col - 1)];
-        next_map[index] += map.grid[(map.height - 1) * map.width + (col + 1)];
+        next_grid[index] = grid[(height - 1) * width + (col - 1)];
+        next_grid[index] += grid[(height - 1) * width + (col + 1)];
         // mirror above column
-        next_map[index] += 2*map.grid[(map.height - 2) * map.width + col];
+        next_grid[index] += 2*grid[(height - 2) * width + col];
         // multiply the current sum by the dispersion_rate
-        next_map[index] *= dispersion_rate;
+        next_grid[index] *= dispersion_rate;
         // add (1 - 4 * dispersion_rate) * center cell
-        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[(map.height - 1) * map.width + col];
+        next_grid[index] += (1 - 4 * dispersion_rate) * grid[(height - 1) * width + col];
     }
     // left column
-    for (int row = 1; row < map.height - 1; row++) {
-        int index = row * map.width + 0;
+    for (int row = 1; row < height - 1; row++) {
+        int index = row * width + 0;
         // sum adjacent rows
-        next_map[index] = map.grid[(row - 1) * map.width + 0];
-        next_map[index] += map.grid[(row + 1) * map.width + 0];
+        next_grid[index] = grid[(row - 1) * width + 0];
+        next_grid[index] += grid[(row + 1) * width + 0];
         // mirror right column
-        next_map[index] += 2*map.grid[row * map.width + 1];
+        next_grid[index] += 2*grid[row * width + 1];
         // multiply the current sum by the dispersion_rate
-        next_map[index] *= dispersion_rate;
+        next_grid[index] *= dispersion_rate;
         // add (1 - 4 * dispersion_rate) * center cell
-        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[row * map.width + 0];
+        next_grid[index] += (1 - 4 * dispersion_rate) * grid[row * width + 0];
     }
     // right column
-    for (int row = 1; row < map.height - 1; row++) {
-        int index = row * map.width + (map.width - 1);
+    for (int row = 1; row < height - 1; row++) {
+        int index = row * width + (width - 1);
         // sum adjacent rows
-        next_map[index] = map.grid[(row - 1) * map.width + (map.width - 1)];
-        next_map[index] += map.grid[(row + 1) * map.width + (map.width - 1)];
+        next_grid[index] = grid[(row - 1) * width + (width - 1)];
+        next_grid[index] += grid[(row + 1) * width + (width - 1)];
         // mirror left column
-        next_map[index] += 2*map.grid[row * map.width + (map.width - 2)];
+        next_grid[index] += 2*grid[row * width + (width - 2)];
         // multiply the current sum by the dispersion_rate
-        next_map[index] *= dispersion_rate;
+        next_grid[index] *= dispersion_rate;
         // add (1 - 4 * dispersion_rate) * center cell
-        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[row * map.width + (map.width - 1)];
+        next_grid[index] += (1 - 4 * dispersion_rate) * grid[row * width + (width - 1)];
     }
     // top left corner
-    next_map[0 * map.width + 0] = 2*map.grid[0 * map.width + 1];
-    next_map[0 * map.width + 0] += 2*map.grid[1 * map.width + 0];
-    next_map[0 * map.width + 0] *= dispersion_rate;
-    next_map[0 * map.width + 0] += (1 - 4 * dispersion_rate) * map.grid[0 * map.width + 0];
+    next_grid[0 * width + 0] = 2*grid[0 * width + 1];
+    next_grid[0 * width + 0] += 2*grid[1 * width + 0];
+    next_grid[0 * width + 0] *= dispersion_rate;
+    next_grid[0 * width + 0] += (1 - 4 * dispersion_rate) * grid[0 * width + 0];
     // top right corner
-    next_map[0 * map.width + (map.width - 1)] = 2*map.grid[0 * map.width + (map.width - 2)];
-    next_map[0 * map.width + (map.width - 1)] += 2*map.grid[1 * map.width + (map.width - 1)];
-    next_map[0 * map.width + (map.width - 1)] *= dispersion_rate;
-    next_map[0 * map.width + (map.width - 1)] += (1 - 4 * dispersion_rate) * map.grid[0 * map.width + (map.width - 1)];
+    next_grid[0 * width + (width - 1)] = 2*grid[0 * width + (width - 2)];
+    next_grid[0 * width + (width - 1)] += 2*grid[1 * width + (width - 1)];
+    next_grid[0 * width + (width - 1)] *= dispersion_rate;
+    next_grid[0 * width + (width - 1)] += (1 - 4 * dispersion_rate) * grid[0 * width + (width - 1)];
     // bottom left corner
-    next_map[(map.height - 1) * map.width + 0] = 2*map.grid[(map.height - 1)  * map.width + 1];
-    next_map[(map.height - 1)  * map.width + 0] += 2*map.grid[(map.height - 2)  * map.width + 0];
-    next_map[(map.height - 1)  * map.width + 0] *= dispersion_rate;
-    next_map[(map.height - 1)  * map.width + 0] += (1 - 4 * dispersion_rate) * map.grid[(map.height - 1)  * map.width + 0];
+    next_grid[(height - 1) * width + 0] = 2*grid[(height - 1)  * width + 1];
+    next_grid[(height - 1)  * width + 0] += 2*grid[(height - 2)  * width + 0];
+    next_grid[(height - 1)  * width + 0] *= dispersion_rate;
+    next_grid[(height - 1)  * width + 0] += (1 - 4 * dispersion_rate) * grid[(height - 1)  * width + 0];
     // bottom right corner
-    next_map[(map.height - 1)  * map.width + (map.width - 1)] = 2*map.grid[(map.height - 1)  * map.width + (map.width - 2)];
-    next_map[(map.height - 1)  * map.width + (map.width - 1)] += 2*map.grid[(map.height - 2)  * map.width + (map.width - 1)];
-    next_map[(map.height - 1)  * map.width + (map.width - 1)] *= dispersion_rate;
-    next_map[(map.height - 1)  * map.width + (map.width - 1)] += (1 - 4 * dispersion_rate) * map.grid[(map.height - 1)  * map.width + (map.width - 1)];
+    next_grid[(height - 1)  * width + (width - 1)] = 2*grid[(height - 1)  * width + (width - 2)];
+    next_grid[(height - 1)  * width + (width - 1)] += 2*grid[(height - 2)  * width + (width - 1)];
+    next_grid[(height - 1)  * width + (width - 1)] *= dispersion_rate;
+    next_grid[(height - 1)  * width + (width - 1)] += (1 - 4 * dispersion_rate) * grid[(height - 1)  * width + (width - 1)];
+}
 
-    // problem with switching pointers is that it wouldn't propagate back without turning the map into a pointer all the way back
-    memcpy(map.grid, next_map, map.width * map.height * sizeof(*next_map));
-    free(next_map);
+// uses a heat equation with boundary conditions deriviative = 0
+// warning: changes the map.grid pointer
+void disperse_trail(struct Map *p_map, double dispersion_rate) {
+    // allocates a new map
+    double *next_grid = malloc_or_die(p_map->width * p_map->height * sizeof(*next_grid));
+    disperse_grid(p_map->grid, next_grid, p_map->width, p_map->height, dispersion_rate);
+    // switch next_map with the current grid
+    free(p_map->grid);
+    p_map->grid = next_grid;
 }
 
 void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate, double trail_max) {
@@ -175,7 +178,7 @@ void evaporate_trail (struct Map map, double evaporation_rate) {
     }
 }
 
-void simulate_step(struct Map map, struct Agent *agents, int nagents, struct Behavior behavior) {
+void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior) {
     // TODO to be used
     (void) behavior.movement_noise;
     (void) behavior.turn_rate;
@@ -188,10 +191,10 @@ void simulate_step(struct Map map, struct Agent *agents, int nagents, struct Beh
 
     for (int i = 0; i < nagents; i++) {
         struct Agent *agent = &agents[i];
-        deposit_trail(map, agent, behavior.trail_deposit_rate, behavior.trail_max);
-        move_and_check_wall_collision(agent, behavior.movement_speed, map);
+        deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
+        move_and_check_wall_collision(agent, behavior.movement_speed, *p_map);
     }
 
-    disperse_trail(map, behavior.dispersion_rate);
-    evaporate_trail(map, behavior.evaporation_rate);
+    disperse_trail(p_map, behavior.dispersion_rate);
+    evaporate_trail(*p_map, behavior.evaporation_rate);
 }

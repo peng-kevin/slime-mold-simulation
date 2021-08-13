@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
         //printf("----Cycle %d----\n", i);
         // Perform resolution_factor cycles per frame
         for (int j = 0; j < resolution_factor; j++) {
-            simulate_step(map, agents, nagents, behavior_normalized);
+            simulate_step(&map, agents, nagents, behavior_normalized);
         }
         prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, outfd);
     }
