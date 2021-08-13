@@ -19,6 +19,9 @@
 #define CRF "20"
 #define ENCODER_PRESET "fast"
 
+#define RED "\x1B[31m"
+#define RESET "\x1B[0m"
+
 #define TRAIL_MAX 255
 
 int parse_int(char *str, char *val, int min, int max) {
@@ -131,7 +134,7 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
         agents[i].x = randd(0, width);
         agents[i].y = randd(0, height);
         agents[i].direction = randd(0, 2 * M_PI);
-        //agents[i].x = 0.1 * width;
+        //agents[i].x = 0.5 * width;
         //agents[i].y = 0.5 * height;
         //agents[i].direction = 0;
     }
@@ -171,10 +174,16 @@ int main(int argc, char *argv[]) {
         perror("Error");
         exit(1);
     }
+    //srand(0);
     srand(time(0));
 
     // normalize behavior
     struct Behavior behavior_normalized = normalize_behavior(behavior, resolution_factor, fps);
+
+    //check for instability
+    if (behavior_normalized.dispersion_rate > 0.25) {
+        printf(RED "Warning:" RESET " dispersion unstable because (dispersion_rate)(dt)/(dx^2) = %lf > 0.25\n", behavior_normalized.dispersion_rate);
+    }
 
     // allocate space for the grid
     // width and height scaled by resolution_factor
