@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
     behavior.movement_speed = parse_double(argv[7], "movement_speed", 0, INFINITY);
     behavior.trail_deposit_rate = parse_double(argv[8], "trail_deposit_rate", 0, INFINITY);
     behavior.movement_noise = parse_double(argv[9], "movement_noise", 0, INFINITY);
-    behavior.turn_rate = parse_double(argv[10], "turn_rate", 0, M_PI);
+    behavior.turn_rate = parse_double(argv[10], "turn_rate", 0, INFINITY);
     behavior.dispersion_rate = parse_double(argv[11], "dispersion_rate", 0, INFINITY);
     behavior.evaporation_rate = parse_double(argv[12], "evaporation_rate", 0, 1);
 

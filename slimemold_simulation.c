@@ -5,8 +5,8 @@
 #include "slimemold_simulation.h"
 #include "util.h"
 
-#define LOOK_AHEAD 1.5
-#define EPSILON 0.001
+#define LOOK_AHEAD 1
+#define EPSILON 0.00001
 // 10 degrees
 #define SCATTER_BUFFER M_PI/18
 // get the next x after moving distance units in direction
@@ -16,6 +16,11 @@ double next_x(double x, double distance, double direction) {
 // get the next y after moving distance units in direction
 double next_y(double y, double distance, double direction) {
     return y + distance * sin(direction);
+}
+
+//gets index in map from a position
+double get_index(struct Map map, double x, double y) {
+    return (int) y * map.width + (int) x;
 }
 
 // bounds the double between min and max
@@ -128,9 +133,26 @@ void disperse_trail(struct Map *p_map, double dispersion_rate) {
 }
 
 void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate, double trail_max) {
-    int index = (int) agent->y * map.width + (int) agent->x;
+    int index = get_index(map, agent->x, agent->y);
     double updated_trail = fmin(trail_max, map.grid[index] + trail_deposit_rate);
     map.grid[index] = updated_trail;
+}
+
+// turns in the direction with the highest trail value
+void turn_uptrail(struct Agent *agent, double turn_rate, double movement_speed, struct Map map) {
+    double max_direction = agent->direction;
+    double max_trail = -INFINITY;
+    for (double i = -1; i <= 1; i += 0.25) {
+        double dir = agent->direction + (i * turn_rate);
+        double ahead_x = next_x(agent->x, movement_speed*LOOK_AHEAD, dir);
+        double ahead_y = next_y(agent->y, movement_speed*LOOK_AHEAD, dir);
+        int index = get_index(map, ahead_x, ahead_y);
+        if(map.grid[index] > max_trail) {
+            max_trail = map.grid[index];
+            max_direction = dir;
+        }
+    }
+    agent->direction = max_direction;
 }
 
 void add_noise_to_movement(struct Agent *agent, double movement_noise) {
@@ -179,13 +201,10 @@ void evaporate_trail (struct Map map, double evaporation_rate) {
 }
 
 void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior) {
-    // TODO to be used
-    (void) behavior.movement_noise;
-    (void) behavior.turn_rate;
-    (void) behavior.dispersion_rate;
     // Sets direction of each agent before depositing a trail
     for (int i = 0; i < nagents; i++) {
         struct Agent *agent = &agents[i];
+        turn_uptrail(agent, behavior.turn_rate, behavior.movement_speed, *p_map);
         add_noise_to_movement(agent, behavior.movement_noise);
     }
 
