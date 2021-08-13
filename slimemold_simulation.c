@@ -47,81 +47,34 @@ void disperse_grid(double *grid, double *next_grid, int width, int height, doubl
         }
     }
     // handles boundary condition
+    // it is organized like this to make it easier to change the boundary condition
     // top row
     for (int col = 1; col < width - 1; col++) {
-        int index = 0 * width + col;
-        // sum adjacent columns
-        next_grid[index] = grid[0 * width + (col - 1)];
-        next_grid[index] += grid[0 * width + (col + 1)];
-        // mirror lower column
-        next_grid[index] += 2*grid[1 * width + col];
-        // multiply the current sum by the dispersion_rate
-        next_grid[index] *= dispersion_rate;
-        // add (1 - 4 * dispersion_rate) * center cell
-        next_grid[index] += (1 - 4 * dispersion_rate) * grid[0 * width + col];
+        next_grid[0 * width + col] = 0;
     }
     // bottom row
     for (int col = 1; col < width - 1; col++) {
-        int index = (height - 1) * width + col;
-        // sum adjacent columns
-        next_grid[index] = grid[(height - 1) * width + (col - 1)];
-        next_grid[index] += grid[(height - 1) * width + (col + 1)];
-        // mirror above column
-        next_grid[index] += 2*grid[(height - 2) * width + col];
-        // multiply the current sum by the dispersion_rate
-        next_grid[index] *= dispersion_rate;
-        // add (1 - 4 * dispersion_rate) * center cell
-        next_grid[index] += (1 - 4 * dispersion_rate) * grid[(height - 1) * width + col];
+        next_grid[(height - 1) * width + col] = 0;
     }
     // left column
     for (int row = 1; row < height - 1; row++) {
-        int index = row * width + 0;
-        // sum adjacent rows
-        next_grid[index] = grid[(row - 1) * width + 0];
-        next_grid[index] += grid[(row + 1) * width + 0];
-        // mirror right column
-        next_grid[index] += 2*grid[row * width + 1];
-        // multiply the current sum by the dispersion_rate
-        next_grid[index] *= dispersion_rate;
-        // add (1 - 4 * dispersion_rate) * center cell
-        next_grid[index] += (1 - 4 * dispersion_rate) * grid[row * width + 0];
+        next_grid[row * width + 0] = 0;
     }
     // right column
     for (int row = 1; row < height - 1; row++) {
-        int index = row * width + (width - 1);
-        // sum adjacent rows
-        next_grid[index] = grid[(row - 1) * width + (width - 1)];
-        next_grid[index] += grid[(row + 1) * width + (width - 1)];
-        // mirror left column
-        next_grid[index] += 2*grid[row * width + (width - 2)];
-        // multiply the current sum by the dispersion_rate
-        next_grid[index] *= dispersion_rate;
-        // add (1 - 4 * dispersion_rate) * center cell
-        next_grid[index] += (1 - 4 * dispersion_rate) * grid[row * width + (width - 1)];
+        next_grid[row * width + (width - 1)] = 0;
     }
     // top left corner
-    next_grid[0 * width + 0] = 2*grid[0 * width + 1];
-    next_grid[0 * width + 0] += 2*grid[1 * width + 0];
-    next_grid[0 * width + 0] *= dispersion_rate;
-    next_grid[0 * width + 0] += (1 - 4 * dispersion_rate) * grid[0 * width + 0];
+    next_grid[0 * width + 0] = 0;
     // top right corner
-    next_grid[0 * width + (width - 1)] = 2*grid[0 * width + (width - 2)];
-    next_grid[0 * width + (width - 1)] += 2*grid[1 * width + (width - 1)];
-    next_grid[0 * width + (width - 1)] *= dispersion_rate;
-    next_grid[0 * width + (width - 1)] += (1 - 4 * dispersion_rate) * grid[0 * width + (width - 1)];
+    next_grid[0 * width + (width - 1)] = 0;
     // bottom left corner
-    next_grid[(height - 1) * width + 0] = 2*grid[(height - 1)  * width + 1];
-    next_grid[(height - 1)  * width + 0] += 2*grid[(height - 2)  * width + 0];
-    next_grid[(height - 1)  * width + 0] *= dispersion_rate;
-    next_grid[(height - 1)  * width + 0] += (1 - 4 * dispersion_rate) * grid[(height - 1)  * width + 0];
+    next_grid[(height - 1) * width + 0] = 0;
     // bottom right corner
-    next_grid[(height - 1)  * width + (width - 1)] = 2*grid[(height - 1)  * width + (width - 2)];
-    next_grid[(height - 1)  * width + (width - 1)] += 2*grid[(height - 2)  * width + (width - 1)];
-    next_grid[(height - 1)  * width + (width - 1)] *= dispersion_rate;
-    next_grid[(height - 1)  * width + (width - 1)] += (1 - 4 * dispersion_rate) * grid[(height - 1)  * width + (width - 1)];
+    next_grid[(height - 1)  * width + (width - 1)] = 0;
 }
 
-// uses a heat equation with boundary conditions deriviative = 0
+// uses a heat equation with prescribed boundary conditions value = 0
 // warning: changes the map.grid pointer
 void disperse_trail(struct Map *p_map, double dispersion_rate) {
     // allocates a new map
