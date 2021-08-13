@@ -56,7 +56,8 @@ struct Behavior normalize_behavior(struct Behavior behavior, int factor, int fps
     behavior_N.movement_noise = behavior.movement_noise / sqrt(factor * fps);
     // Same time to turn same amount
     behavior_N.turn_rate = behavior.turn_rate / (factor * fps);
-    behavior_N.dispersion_rate = behavior.dispersion_rate; //TODO
+    // dispersion_rate * dt / (dx)^2
+    behavior_N.dispersion_rate = behavior.dispersion_rate * factor / fps;
     // Each cell evaporates exponentially
     behavior_N.evaporation_rate = behavior.evaporation_rate / (factor * fps);
     // The trail might be concentrated in a subcell
@@ -127,12 +128,12 @@ void prepare_and_write_image (double* map, int width, int height, int resolution
 void intialize_agents(struct Agent *agents, int nagents, int width, int height) {
     // give each agent a random position and direction
     for (int i = 0; i < nagents; i++) {
-        //agents[i].x = randd(0, width);
-        //agents[i].y = randd(0, height);
-        //agents[i].direction = randd(0, 2 * M_PI);
-        agents[i].x = 0.1 * width;
-        agents[i].y = 0.5 * height;
-        agents[i].direction = 0;
+        agents[i].x = randd(0, width);
+        agents[i].y = randd(0, height);
+        agents[i].direction = randd(0, 2 * M_PI);
+        //agents[i].x = 0.1 * width;
+        //agents[i].y = 0.5 * height;
+        //agents[i].direction = 0;
     }
 }
 
@@ -146,8 +147,8 @@ int main(int argc, char *argv[]) {
     }
     struct Behavior behavior;
 
-    int width = parse_int(argv[1], "width", 1, INT_MAX);
-    int height = parse_int(argv[2], "height", 1, INT_MAX);
+    int width = parse_int(argv[1], "width", 3, INT_MAX);
+    int height = parse_int(argv[2], "height", 3, INT_MAX);
     int fps = parse_int(argv[3], "fps", 1, INT_MAX);
     int resolution_factor = parse_int(argv[4], "resolution_factor", 1, INT_MAX);
     int seconds = parse_int(argv[5], "seconds", 1, INT_MAX);
@@ -184,7 +185,6 @@ int main(int argc, char *argv[]) {
     // zero out memory
     memset(map.grid, 0, map.width * map.height * sizeof(*(map.grid)));
 
-    int cycles = 0;
     // intialize agents
     struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
     intialize_agents(agents, nagents, map.width, map.height);
@@ -193,7 +193,6 @@ int main(int argc, char *argv[]) {
         //printf("----Cycle %d----\n", i);
         // Perform resolution_factor cycles per frame
         for (int j = 0; j < resolution_factor; j++) {
-            cycles++;
             simulate_step(map, agents, nagents, behavior_normalized);
         }
         prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, outfd);
@@ -202,5 +201,4 @@ int main(int argc, char *argv[]) {
     free(map.grid);
     free(agents);
     close_pipe(outfd, pid);
-    printf("Cycles: %d\n", cycles);
 }

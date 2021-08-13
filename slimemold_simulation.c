@@ -23,6 +23,107 @@ double bound(double n, double min, double max) {
     return fmax(min, fmin(max, n));
 }
 
+// uses a heat equation with boundary conditions deriviative = 0
+// warning: changes the map.grid pointer
+void disperse_trail(struct Map map, double dispersion_rate) {
+    // allocates a new map
+    double *next_map = malloc_or_die(map.width * map.height * sizeof(*next_map));
+    // handles the center cells using a FTCS scheme.
+    // finds the sum of the difference between the current and adjacent cells
+    // and moves the current value by that difference scaled by the dispersion_rate
+    for (int row = 1; row < map.height - 1; row++) {
+        for (int col = 1; col < map.width - 1; col++) {
+            int index = row * map.width + col;
+            // sum the four adjacent cell
+            next_map[index] = map.grid[row * map.width + (col - 1)];
+            next_map[index] += map.grid[row * map.width + (col + 1)];
+            next_map[index] += map.grid[(row - 1) * map.width + col];
+            next_map[index] += map.grid[(row + 1) * map.width + col];
+            // multiply the current sum by the dispersion_rate
+            next_map[index] *= dispersion_rate;
+            // add (1 - 4 * dispersion_rate) * center cell
+            next_map[index] += (1 - 4 * dispersion_rate) * map.grid[row * map.width + col];
+        }
+    }
+    // handles boundary condition
+    // top row
+    for (int col = 1; col < map.width - 1; col++) {
+        int index = 0 * map.width + col;
+        // sum adjacent columns
+        next_map[index] = map.grid[0 * map.width + (col - 1)];
+        next_map[index] += map.grid[0 * map.width + (col + 1)];
+        // mirror lower column
+        next_map[index] += 2*map.grid[1 * map.width + col];
+        // multiply the current sum by the dispersion_rate
+        next_map[index] *= dispersion_rate;
+        // add (1 - 4 * dispersion_rate) * center cell
+        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[0 * map.width + col];
+    }
+    // bottom row
+    for (int col = 1; col < map.width - 1; col++) {
+        int index = (map.height - 1) * map.width + col;
+        // sum adjacent columns
+        next_map[index] = map.grid[(map.height - 1) * map.width + (col - 1)];
+        next_map[index] += map.grid[(map.height - 1) * map.width + (col + 1)];
+        // mirror above column
+        next_map[index] += 2*map.grid[(map.height - 2) * map.width + col];
+        // multiply the current sum by the dispersion_rate
+        next_map[index] *= dispersion_rate;
+        // add (1 - 4 * dispersion_rate) * center cell
+        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[(map.height - 1) * map.width + col];
+    }
+    // left column
+    for (int row = 1; row < map.height - 1; row++) {
+        int index = row * map.width + 0;
+        // sum adjacent rows
+        next_map[index] = map.grid[(row - 1) * map.width + 0];
+        next_map[index] += map.grid[(row + 1) * map.width + 0];
+        // mirror right column
+        next_map[index] += 2*map.grid[row * map.width + 1];
+        // multiply the current sum by the dispersion_rate
+        next_map[index] *= dispersion_rate;
+        // add (1 - 4 * dispersion_rate) * center cell
+        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[row * map.width + 0];
+    }
+    // right column
+    for (int row = 1; row < map.height - 1; row++) {
+        int index = row * map.width + (map.width - 1);
+        // sum adjacent rows
+        next_map[index] = map.grid[(row - 1) * map.width + (map.width - 1)];
+        next_map[index] += map.grid[(row + 1) * map.width + (map.width - 1)];
+        // mirror left column
+        next_map[index] += 2*map.grid[row * map.width + (map.width - 2)];
+        // multiply the current sum by the dispersion_rate
+        next_map[index] *= dispersion_rate;
+        // add (1 - 4 * dispersion_rate) * center cell
+        next_map[index] += (1 - 4 * dispersion_rate) * map.grid[row * map.width + (map.width - 1)];
+    }
+    // top left corner
+    next_map[0 * map.width + 0] = 2*map.grid[0 * map.width + 1];
+    next_map[0 * map.width + 0] += 2*map.grid[1 * map.width + 0];
+    next_map[0 * map.width + 0] *= dispersion_rate;
+    next_map[0 * map.width + 0] += (1 - 4 * dispersion_rate) * map.grid[0 * map.width + 0];
+    // top right corner
+    next_map[0 * map.width + (map.width - 1)] = 2*map.grid[0 * map.width + (map.width - 2)];
+    next_map[0 * map.width + (map.width - 1)] += 2*map.grid[1 * map.width + (map.width - 1)];
+    next_map[0 * map.width + (map.width - 1)] *= dispersion_rate;
+    next_map[0 * map.width + (map.width - 1)] += (1 - 4 * dispersion_rate) * map.grid[0 * map.width + (map.width - 1)];
+    // bottom left corner
+    next_map[(map.height - 1) * map.width + 0] = 2*map.grid[(map.height - 1)  * map.width + 1];
+    next_map[(map.height - 1)  * map.width + 0] += 2*map.grid[(map.height - 2)  * map.width + 0];
+    next_map[(map.height - 1)  * map.width + 0] *= dispersion_rate;
+    next_map[(map.height - 1)  * map.width + 0] += (1 - 4 * dispersion_rate) * map.grid[(map.height - 1)  * map.width + 0];
+    // bottom right corner
+    next_map[(map.height - 1)  * map.width + (map.width - 1)] = 2*map.grid[(map.height - 1)  * map.width + (map.width - 2)];
+    next_map[(map.height - 1)  * map.width + (map.width - 1)] += 2*map.grid[(map.height - 2)  * map.width + (map.width - 1)];
+    next_map[(map.height - 1)  * map.width + (map.width - 1)] *= dispersion_rate;
+    next_map[(map.height - 1)  * map.width + (map.width - 1)] += (1 - 4 * dispersion_rate) * map.grid[(map.height - 1)  * map.width + (map.width - 1)];
+
+    // problem with switching pointers is that it wouldn't propagate back without turning the map into a pointer all the way back
+    memcpy(map.grid, next_map, map.width * map.height * sizeof(*next_map));
+    free(next_map);
+}
+
 void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate, double trail_max) {
     int index = (int) agent->y * map.width + (int) agent->x;
     double updated_trail = fmin(trail_max, map.grid[index] + trail_deposit_rate);
@@ -91,5 +192,6 @@ void simulate_step(struct Map map, struct Agent *agents, int nagents, struct Beh
         move_and_check_wall_collision(agent, behavior.movement_speed, map);
     }
 
+    disperse_trail(map, behavior.dispersion_rate);
     evaporate_trail(map, behavior.evaporation_rate);
 }
