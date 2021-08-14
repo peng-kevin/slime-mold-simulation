@@ -41,7 +41,7 @@ int open_pipe(int fps, char* filename, enum EncoderPreset preset, int* outfd, pi
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
-        execlp("ffmpeg", "ffmpeg", "-hide_banner", "-loglevel", FFMPEG_LOG_LEVEL, "-f", "image2pipe", "-pix_fmt", "gray", "-c:v", "pgm", "-framerate", fpsbuf, "-i", "pipe:", "-c:v", CODEC, CODEC_PARAM, CODEC_LOG_LEVEL, "-crf", crf, "-preset", encoder_preset, filename, (char *) NULL);
+        execlp("ffmpeg", "ffmpeg", "-hide_banner", "-loglevel", FFMPEG_LOG_LEVEL, "-f", "image2pipe", "-framerate", fpsbuf, "-i", "pipe:", "-c:v", CODEC, CODEC_PARAM, CODEC_LOG_LEVEL, "-crf", crf, "-preset", encoder_preset, filename, (char *) NULL);
         return -1;
     }
     close(pipefd[0]);
