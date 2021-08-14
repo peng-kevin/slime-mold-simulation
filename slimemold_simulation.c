@@ -7,7 +7,6 @@
 #include "util.h"
 
 #define EPSILON 0.001
-#define LOOK_AHEAD 3
 // 10 degrees
 #define SCATTER_BUFFER M_PI/18
 // get the next x after moving distance units in direction
@@ -101,13 +100,13 @@ void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rat
 }
 
 // turns in the direction with the highest trail value
-void turn_uptrail(struct Agent *agent, double turn_rate, double movement_speed, struct Map map) {
+void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, struct Map map) {
     double max_direction = agent->direction;
     double max_trail = -INFINITY;
     for (double i = -1; i <= 1; i += 0.5) {
         double dir = agent->direction + (i * turn_rate);
-        double ahead_x = next_x(agent->x, movement_speed*LOOK_AHEAD, dir);
-        double ahead_y = next_y(agent->y, movement_speed*LOOK_AHEAD, dir);
+        double ahead_x = next_x(agent->x, sensor_length, dir);
+        double ahead_y = next_y(agent->y, sensor_length, dir);
         // check if it is in bounds
         if (ahead_x < EPSILON || ahead_x > map.width - EPSILON || ahead_y < EPSILON || ahead_y > map.height - EPSILON) {
             continue;
@@ -177,7 +176,7 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
         #pragma omp for nowait
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
-            turn_uptrail(agent, behavior.turn_rate, behavior.movement_speed, *p_map);
+            turn_uptrail(agent, behavior.turn_rate, behavior.sensor_length, *p_map);
             add_noise_to_movement(agent, behavior.movement_noise, &seed);
             move_and_check_wall_collision(agent, behavior.movement_speed, *p_map, &seed);
         }

@@ -19,6 +19,7 @@ struct Behavior {
     double trail_deposit_rate;
     double movement_noise;
     double turn_rate;
+    double sensor_length;
     double dispersion_rate;
     double evaporation_rate;
     double trail_max;

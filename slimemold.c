@@ -61,6 +61,8 @@ struct Behavior normalize_behavior(struct Behavior behavior, int factor, int fps
     behavior_N.movement_noise = behavior.movement_noise / sqrt(factor * fps);
     // Same time to turn same amount
     behavior_N.turn_rate = behavior.turn_rate / (factor * fps);
+    // no change, just need to ensure that sesnor stay ahead of own trail
+    behavior_N.sensor_length = behavior.sensor_length;
     // dispersion_rate * dt / (dx)^2
     behavior_N.dispersion_rate = behavior.dispersion_rate * factor / fps;
     // Each cell evaporates exponentially
@@ -145,9 +147,9 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
 
 int main(int argc, char *argv[]) {
     // Parse the command line arguments
-    if (argc != 14) {
+    if (argc != 15) {
         fprintf(stderr, "usage: %s width height fps resolution_factor seconds nagents movement_speed "
-                "trail_deposit_rate movement_noise turn_rate dispersion_rate "
+                "trail_deposit_rate movement_noise turn_rate sensor_length dispersion_rate "
                 "evaporation_rate output_file\n", argv[0]);
         exit(1);
     }
@@ -163,11 +165,12 @@ int main(int argc, char *argv[]) {
     behavior.trail_deposit_rate = parse_double(argv[8], "trail_deposit_rate", 0, INFINITY);
     behavior.movement_noise = parse_double(argv[9], "movement_noise", 0, INFINITY);
     behavior.turn_rate = parse_double(argv[10], "turn_rate", 0, INFINITY);
-    behavior.dispersion_rate = parse_double(argv[11], "dispersion_rate", 0, INFINITY);
-    behavior.evaporation_rate = parse_double(argv[12], "evaporation_rate", 0, 1);
+    behavior.sensor_length = parse_double(argv[11], "sensor_length", 0, INFINITY);
+    behavior.dispersion_rate = parse_double(argv[12], "dispersion_rate", 0, INFINITY);
+    behavior.evaporation_rate = parse_double(argv[13], "evaporation_rate", 0, 1);
 
     behavior.trail_max = TRAIL_MAX;
-    char *filename = argv[13];
+    char *filename = argv[14];
     printf("\n");
 
     //initiate FFmpeg
