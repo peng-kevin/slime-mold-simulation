@@ -1,7 +1,7 @@
 BUILDDIR := .build
 
 BIN := slimemold
-SRCS := slimemold.c slimemold_simulation.c util.c encode_video.c
+SRCS := slimemold.c slimemold_simulation.c util.c encode_video.c process_image.c
 LDLIBS := -lm -fopenmp
 objs = $(patsubst %.c,$(BUILDDIR)/%.o, $(SRCS))
 

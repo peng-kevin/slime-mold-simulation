@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <stddef.h>
+
 /**
  * Attempts to malloc size bytes, exits on failure
  */

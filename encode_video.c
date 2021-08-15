@@ -1,3 +1,8 @@
+#include <stdio.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include "encode_video.h"
 
 #define FFMPEG_LOG_LEVEL "info"

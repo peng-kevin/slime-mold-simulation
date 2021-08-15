@@ -1,17 +1,18 @@
 #include <fcntl.h>
+#include <limits.h>
+#include <math.h>
 #include <omp.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <math.h>
 #include <sys/wait.h>
-#include <limits.h>
-#include <fenv.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "slimemold_simulation.h"
 #include "encode_video.h"
+#include "process_image.h"
+#include "slimemold_simulation.h"
 #include "util.h"
 
 #define FFMPEG_LOG_LEVEL "info"
@@ -24,7 +25,7 @@
 #define RED "\x1B[31m"
 #define RESET "\x1B[0m"
 
-#define TRAIL_MAX 255
+#define TRAIL_MAX 1000
 
 int parse_int(char *str, char *val, int min, int max) {
     int n = atoi(str);
@@ -61,7 +62,7 @@ struct Behavior normalize_behavior(struct Behavior behavior, int factor, int fps
     behavior_N.movement_noise = behavior.movement_noise / sqrt(factor * fps);
     // Same time to turn same amount
     behavior_N.turn_rate = behavior.turn_rate / (factor * fps);
-    // no change, just need to ensure that sesnor stay ahead of own trail
+    // no change, just need to ensure that sensor stays ahead of own trail
     behavior_N.sensor_length = behavior.sensor_length;
     // dispersion_rate * dt / (dx)^2
     behavior_N.dispersion_rate = behavior.dispersion_rate * factor / fps;
@@ -72,44 +73,14 @@ struct Behavior normalize_behavior(struct Behavior behavior, int factor, int fps
     return behavior_N;
 }
 
-// Prepare an image grid to be written.
-// Downscales the image and rounds to byte
-uint8_t* prepare_image(double* map, int width, int height, int resolution_factor) {
-    // size of resulting image
-    int image_width = width / resolution_factor;
-    int image_height = height / resolution_factor;
-    // convert double array to byte array
-    uint8_t *rounded_map =  malloc_or_die(image_width * image_height * sizeof(*rounded_map));
-    for (int row = 0; row < image_height; row++) {
-        for (int col = 0; col < image_width; col ++) {
-            // average a resolution_factor x resolution_factor block
-            double sum = 0;
-            // corresponding position in the grid
-            int grid_row = row * resolution_factor;
-            int grid_col = col * resolution_factor;
-            // sum the pixels in the block
-            for (int row_block = 0; row_block < resolution_factor; row_block++) {
-                for (int col_block = 0; col_block < resolution_factor; col_block++) {
-                    sum += map[(grid_row + row_block) * width + (grid_col + col_block)];
-                }
-            }
-            double avg = sum/(resolution_factor * resolution_factor);
-            avg = fmin(avg, TRAIL_MAX);
-            rounded_map[row * image_width + col] = (uint8_t) round(avg);
-        }
-    }
-
-    return rounded_map;
-}
-
 // resolution_factor is the factor by which the image must be downsized
-void write_image (uint8_t *image, int width, int height, int fd) {
+void write_image (struct Color *image, int width, int height, int fd) {
     ssize_t written;
     // write the header
-    dprintf(fd, "P5\n%d %d 255\n", width, height);
+    dprintf(fd, "P6\n%d %d 255\n", width, height);
     //write the image
-    written = write(fd, image, width * height * sizeof(uint8_t));
-    if (written != width * height) {
+    written = write(fd, image, width * height * sizeof(*image));
+    if (written != width * height * (long int) sizeof(*image)) {
         fprintf(stderr, "Error writing to pipe\n");
         exit(1);
     }
@@ -127,9 +98,17 @@ void write_image (uint8_t *image, int width, int height, int fd) {
 }
 
 void prepare_and_write_image (double* map, int width, int height, int resolution_factor, int fd) {
-    uint8_t* prepared_image = prepare_image (map, width, height, resolution_factor);
-    write_image (prepared_image, width/resolution_factor, height/resolution_factor, fd);
-    free(prepared_image);
+    if (resolution_factor == 1) {
+        struct Color *prepared_image = color_image(map, width, height, 0, TRAIL_MAX);
+        write_image(prepared_image, width, height, fd);
+        free(prepared_image);
+    } else {
+        double *downscaled_image = downscale_image(map, width, height, resolution_factor);
+        struct Color *prepared_image = color_image(downscaled_image, width/resolution_factor, height/resolution_factor, 0, TRAIL_MAX);
+        write_image(prepared_image, width/resolution_factor, height/resolution_factor, fd);
+        free(downscaled_image);
+        free(prepared_image);
+    }
 }
 
 void intialize_agents(struct Agent *agents, int nagents, int width, int height) {

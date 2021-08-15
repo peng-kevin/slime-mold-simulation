@@ -1,6 +1,7 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+
 #include "util.h"
 
 void* malloc_or_die(size_t size) {

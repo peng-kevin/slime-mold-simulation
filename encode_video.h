@@ -1,10 +1,9 @@
 #ifndef ENCODE_VIDEO_H
 #define ENCODE_VIDEO_H
 
-#include <unistd.h>
-#include <sys/wait.h>
-#include <stdio.h>
-#include <string.h>
+
+
+#include <sys/types.h>
 
 /** @file
  * @brief Encodes a series of frames as a video.
