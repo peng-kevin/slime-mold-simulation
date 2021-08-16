@@ -1,5 +1,6 @@
 #include <math.h>
 #include <omp.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,8 +97,8 @@ void disperse_trail(struct Map *p_map, double dispersion_rate) {
 
 void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate, double trail_max) {
     int index = get_index(map, agent->x, agent->y);
-    double updated_trail = fmin(trail_max, map.grid[index] + trail_deposit_rate);
-    map.grid[index] = updated_trail;
+    double oldval = map.grid[index];
+    while (!atomic_compare_exchange_weak(&map.grid[index], &oldval, fmin(trail_max, oldval + trail_deposit_rate)));
 }
 
 // turns in the direction with the highest trail value
@@ -186,7 +187,7 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
     {
         // copies the value to avoid false sharing
         unsigned int seed = seeds[omp_get_thread_num()];
-        #pragma omp for nowait
+        #pragma omp for
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
             turn_uptrail(agent, behavior.turn_rate, behavior.sensor_length, *p_map, &seed);
@@ -194,11 +195,12 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
             move_and_check_wall_collision(agent, behavior.movement_speed, *p_map, &seed);
         }
         seeds[omp_get_thread_num()] = seed;
-    }
-    //TODO make map thread-safe
-    for (int i = 0; i < nagents; i++) {
-        struct Agent *agent = &agents[i];
-        deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
+        #pragma omp for
+        for (int i = 0; i < nagents; i++) {
+            struct Agent *agent = &agents[i];
+            // possible race conditon handled in function
+            deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
+        }
     }
 
     disperse_trail(p_map, behavior.dispersion_rate);
