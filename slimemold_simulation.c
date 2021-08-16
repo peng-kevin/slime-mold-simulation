@@ -103,14 +103,16 @@ void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rat
 // turns in the direction with the highest trail value
 void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, struct Map map, unsigned int *seedp) {
     // randomize order in which directions are checked to avoid bias in certain direction
-    const int length = 5;
-    double order[] = {-1, -0.5, 0, 0.5, 1};
-    int tmp;
-    for (int i = length - 1; i >= 0; i--) {
-        int j = randint(0, i, seedp);
-        tmp = order[j];
-        order[j] = order[i];
-        order[i] = tmp;
+    const int length = 3;
+    int order[3];
+    switch (randint(0, 5, seedp)) {
+        case 0: order[0] = -1; order[1] = 0; order[2] = 1; break;
+        case 1: order[0] = -1; order[1] = 1; order[2] = 0; break;
+        case 2: order[0] = 0; order[1] = -1; order[2] = 1; break;
+        case 3: order[0] = 0; order[1] = 1; order[2] = -1; break;
+        case 4: order[0] = 1; order[1] = -1; order[2] = 0; break;
+        case 5: order[0] = 1; order[1] = 0; order[2] = -1; break;
+        default: fprintf(stderr, "Error selecting sensor order\n"); exit(1);
     }
     double max_direction = agent->direction;
     double max_trail = -INFINITY;
