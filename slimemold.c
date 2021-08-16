@@ -86,25 +86,25 @@ void write_image (struct Color *image, int width, int height, int fd) {
     }
     // to debug, write out each frame as an image, need to pass in index i
     /*char name[256];
-    sprintf(name, "frame%d.pgm", i);
+    sprintf(name, "frame.ppm");
     FILE *fp = fopen(name, "wb");
     if(!fp) {
         fprintf(stderr, "Could not open file %s\n", name);
         exit(1);
     }
-    fprintf(fp, "P5\n%d %d\n255\n", width, height);
-    fwrite(rounded_map, sizeof(uint8_t), width * height, fp);
+    fprintf(fp, "P6\n%d %d 255\n", width, height);
+    fwrite(image, sizeof(*image), width * height, fp);
     fclose(fp);*/
 }
 
-void prepare_and_write_image (double* map, int width, int height, int resolution_factor, int fd) {
+void prepare_and_write_image (double* map, int width, int height, int resolution_factor, struct ColorMap colormap, int fd) {
     if (resolution_factor == 1) {
-        struct Color *prepared_image = color_image(map, width, height, 0, TRAIL_MAX);
+        struct Color *prepared_image = color_image(map, width, height, colormap, 0, TRAIL_MAX);
         write_image(prepared_image, width, height, fd);
         free(prepared_image);
     } else {
         double *downscaled_image = downscale_image(map, width, height, resolution_factor);
-        struct Color *prepared_image = color_image(downscaled_image, width/resolution_factor, height/resolution_factor, 0, TRAIL_MAX);
+        struct Color *prepared_image = color_image(downscaled_image, width/resolution_factor, height/resolution_factor, colormap, 0, TRAIL_MAX);
         write_image(prepared_image, width/resolution_factor, height/resolution_factor, fd);
         free(downscaled_image);
         free(prepared_image);
@@ -152,13 +152,6 @@ int main(int argc, char *argv[]) {
     char *filename = argv[14];
     printf("\n");
 
-    //initiate FFmpeg
-    int outfd;
-    pid_t pid;
-    if (open_pipe(fps, filename, FAST, &outfd, &pid) == -1) {
-        perror("Error");
-        exit(1);
-    }
     // create an array of seeds for the threads
     unsigned int *seeds = malloc_or_die(omp_get_max_threads() * sizeof(*seeds));
     time_t curtime = time(0);
@@ -174,6 +167,13 @@ int main(int argc, char *argv[]) {
         printf(RED "Warning:" RESET " dispersion unstable because (dispersion_rate)(dt)/(dx^2) = %lf > 0.25\n", behavior_normalized.dispersion_rate);
     }
 
+    // reads in color map
+    struct ColorMap colormap = load_colormap("black-body-table-byte-1024.csv");
+    if (colormap.length == -1) {
+        fprintf(stderr, RED "Error:" RESET " Failed to load colormap from %s\n", "black-body-table-byte-1024.csv");
+        exit(1);
+    }
+
     // allocate space for the grid
     // width and height scaled by resolution_factor
     struct Map map;
@@ -184,10 +184,17 @@ int main(int argc, char *argv[]) {
     memset(map.grid, 0, map.width * map.height * sizeof(*(map.grid)));
 
     // intialize agents
-    printf("Generating agents...");
     struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
     intialize_agents(agents, nagents, map.width, map.height);
-    printf("done\n");
+
+    //initiate FFmpeg
+    int outfd;
+    pid_t pid;
+    if (open_pipe(fps, filename, FAST, &outfd, &pid) == -1) {
+        perror("Error");
+        exit(1);
+    }
+
     // main simulation loop
     for (int i = 0; i < seconds * fps; i++) {
         // Perform resolution_factor cycles per frame
@@ -195,10 +202,11 @@ int main(int argc, char *argv[]) {
             //printf("----Cycle %d----\n", i*resolution_factor + j);
             simulate_step(&map, agents, nagents, behavior_normalized, seeds);
         }
-        prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, outfd);
+        prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, colormap, outfd);
     }
 
     free(map.grid);
     free(agents);
+    destroy_colormap(colormap);
     close_pipe(outfd, pid);
 }
