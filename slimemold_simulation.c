@@ -9,8 +9,8 @@
 #include "util.h"
 
 #define EPSILON 0.001
-// 10 degrees
-#define SCATTER_BUFFER M_PI/18
+// 20 degrees
+#define SCATTER_BUFFER M_PI/9
 // get the next x after moving distance units in direction
 double next_x(double x, double distance, double direction) {
     return x + distance * cos(direction);
@@ -174,10 +174,10 @@ void move_and_check_wall_collision (struct Agent *agent, double movement_speed, 
     agent->y = new_y;
 }
 
-void evaporate_trail (struct Map map, double evaporation_rate) {
+void evaporate_trail (struct Map map, double evaporation_rate_exp, double evaporation_rate_lin) {
     #pragma omp parallel for
     for (int i = 0; i < map.width * map.height; i++) {
-        map.grid[i] *= (1 - evaporation_rate);
+        map.grid[i] = fmax(map.grid[i] * (1 - evaporation_rate_exp) - evaporation_rate_lin, 0);
     }
 }
 
@@ -204,5 +204,5 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
     }
 
     disperse_trail(p_map, behavior.dispersion_rate);
-    evaporate_trail(*p_map, behavior.evaporation_rate);
+    evaporate_trail(*p_map, behavior.evaporation_rate_exp, behavior.evaporation_rate_lin);
 }

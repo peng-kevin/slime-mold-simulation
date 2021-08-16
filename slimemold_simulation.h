@@ -21,7 +21,8 @@ struct Behavior {
     double turn_rate;
     double sensor_length;
     double dispersion_rate;
-    double evaporation_rate;
+    double evaporation_rate_exp;
+    double evaporation_rate_lin;
     double trail_max;
 };
 

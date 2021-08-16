@@ -67,7 +67,9 @@ struct Behavior normalize_behavior(struct Behavior behavior, int factor, int fps
     // dispersion_rate * dt / (dx)^2
     behavior_N.dispersion_rate = behavior.dispersion_rate * factor / fps;
     // Each cell evaporates exponentially
-    behavior_N.evaporation_rate = behavior.evaporation_rate / (factor * fps);
+    behavior_N.evaporation_rate_exp = behavior.evaporation_rate_exp / (factor * fps);
+    // Same rate per cell at all factor levels
+    behavior_N.evaporation_rate_lin = behavior.evaporation_rate_lin / fps;
     // The trail might be concentrated in a subcell
     behavior_N.trail_max = behavior.trail_max * factor * factor;
     return behavior_N;
@@ -126,7 +128,7 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
 
 int main(int argc, char *argv[]) {
     // Parse the command line arguments
-    if (argc != 15) {
+    if (argc != 16) {
         fprintf(stderr, "usage: %s width height fps resolution_factor seconds nagents movement_speed "
                 "trail_deposit_rate movement_noise turn_rate sensor_length dispersion_rate "
                 "evaporation_rate output_file\n", argv[0]);
@@ -146,10 +148,11 @@ int main(int argc, char *argv[]) {
     behavior.turn_rate = parse_double(argv[10], "turn_rate", 0, INFINITY);
     behavior.sensor_length = parse_double(argv[11], "sensor_length", 0, INFINITY);
     behavior.dispersion_rate = parse_double(argv[12], "dispersion_rate", 0, INFINITY);
-    behavior.evaporation_rate = parse_double(argv[13], "evaporation_rate", 0, 1);
+    behavior.evaporation_rate_exp = parse_double(argv[13], "evaporation_rate_exp", 0, 1);
+    behavior.evaporation_rate_lin = parse_double(argv[14], "evaporation_rate_lin", 0, INFINITY);
 
     behavior.trail_max = TRAIL_MAX;
-    char *filename = argv[14];
+    char *filename = argv[15];
     printf("\n");
 
     // create an array of seeds for the threads
