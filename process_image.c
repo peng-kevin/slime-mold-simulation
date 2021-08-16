@@ -12,7 +12,7 @@
 struct ColorMap load_colormap(const char *filename) {
     struct ColorMap cmap;
     int arraysize = ARRAY_RESIZE_INCREMENT;
-    uint8_t r, g, b;
+    int r, g, b;
 
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
@@ -37,13 +37,20 @@ struct ColorMap load_colormap(const char *filename) {
     cmap.colors = malloc_or_die(arraysize * sizeof(*cmap.colors));
     int i = 0;
     while(1) {
-        int n = fscanf(file, "%hhu,%hhu,%hhu\n", &r, &g, &b);
+        int n = fscanf(file, "%d,%d,%d\n", &r, &g, &b);
         // check for end of file or invalid format
         if (n == EOF && !ferror(file)) {
             break;
         } else if(n != 3) {
             // The format must be invalid
             fprintf(stderr, "Error: colormap file format invalid\n");
+            free(cmap.colors);
+            cmap.length = -1;
+            return cmap;
+        }
+        // check validity
+        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+            fprintf(stderr, "Error: record %d: %d %d %d out of range\n", i + 1, r, g, b);
             free(cmap.colors);
             cmap.length = -1;
             return cmap;
@@ -59,9 +66,9 @@ struct ColorMap load_colormap(const char *filename) {
                 return cmap;
             }
         }
-        cmap.colors[i].r = r;
-        cmap.colors[i].g = g;
-        cmap.colors[i].b = b;
+        cmap.colors[i].r = (uint8_t) r;
+        cmap.colors[i].g = (uint8_t) g;
+        cmap.colors[i].b = (uint8_t) b;
         i++;
     }
     // shrink the array if necessary
