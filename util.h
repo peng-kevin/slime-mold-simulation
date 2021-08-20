@@ -16,8 +16,13 @@ void* malloc_or_die(size_t size);
 int randint(int min, int max, unsigned int *seedp);
 
 /**
- * gets a random double between min and max, thread safe with different seeds
+ * Gets a random double between min and max, thread safe with different seeds
  */
 double randd(double min, double max, unsigned int *seedp);
+
+/**
+ * Generic function to shuffle an array with nitems each size bytes wide
+ */
+void shuffle(void *base, size_t nitems, size_t size, unsigned int *seedp);
 
 #endif
