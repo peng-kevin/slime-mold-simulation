@@ -20,6 +20,7 @@ struct Behavior {
     double movement_noise;
     double turn_rate;
     double sensor_length;
+    double sensor_angle_factor;
     double dispersion_rate;
     double evaporation_rate_exp;
     double evaporation_rate_lin;

@@ -102,7 +102,7 @@ void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rat
 }
 
 // turns in the direction with the highest trail value
-void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, struct Map map, unsigned int *seedp) {
+void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, double sensor_angle_factor, struct Map map, unsigned int *seedp) {
     // randomize order in which directions are checked to avoid bias in certain direction
     const int length = 3;
     int order[3];
@@ -118,7 +118,7 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, s
     double max_direction = agent->direction;
     double max_trail = -INFINITY;
     for (int i = 0; i < length; i++) {
-        double dir = agent->direction + (order[i] * turn_rate);
+        double dir = agent->direction + (order[i] * turn_rate * sensor_angle_factor);
         double ahead_x = next_x(agent->x, sensor_length, dir);
         double ahead_y = next_y(agent->y, sensor_length, dir);
         // check if it is in bounds
@@ -128,7 +128,7 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, s
         int index = get_index(map, ahead_x, ahead_y);
         if(map.grid[index] > max_trail) {
             max_trail = map.grid[index];
-            max_direction = dir;
+            max_direction = agent->direction + (order[i] * turn_rate);
         }
     }
     agent->direction = max_direction;
@@ -190,7 +190,7 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
         #pragma omp for
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
-            turn_uptrail(agent, behavior.turn_rate, behavior.sensor_length, *p_map, &seed);
+            turn_uptrail(agent, behavior.turn_rate, behavior.sensor_length, behavior.sensor_angle_factor, *p_map, &seed);
             add_noise_to_movement(agent, behavior.movement_noise, &seed);
             move_and_check_wall_collision(agent, behavior.movement_speed, *p_map, &seed);
         }
