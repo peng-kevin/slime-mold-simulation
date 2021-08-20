@@ -119,12 +119,18 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
     // give each agent a random position and direction
     unsigned int seed = time(0);
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = randd(0, width, &seed);
-        agents[i].y = randd(0, height, &seed);
-        agents[i].direction = randd(0, 2 * M_PI, &seed);
+        //agents[i].x = randd(0, width, &seed);
+        //agents[i].y = randd(0, height, &seed);
+        //agents[i].direction = randd(0, 2 * M_PI, &seed);
+
         //agents[i].x = 0.5 * width;
         //agents[i].y = 0.5 * height;
         //agents[i].direction = 0;
+
+        double rad = 0.4 * (width < height ? width : height);
+        agents[i].direction = randd(-M_PI, M_PI, &seed);
+        agents[i].x = -rad * cos(agents[i].direction) + width/2;
+        agents[i].y = -rad * sin(agents[i].direction) + height/2;
     }
 }
 
