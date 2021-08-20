@@ -2,6 +2,7 @@
 #include <limits.h>
 #include <math.h>
 #include <omp.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,12 +120,28 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
     // give each agent a random position and direction
     unsigned int seed = time(0);
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = randd(0, width, &seed);
-        agents[i].y = randd(0, height, &seed);
-        agents[i].direction = randd(0, 2 * M_PI, &seed);
+        //agents[i].x = randd(0, width, &seed);
+        //agents[i].y = randd(0, height, &seed);
+        //agents[i].direction = randd(0, 2 * M_PI, &seed);
+
         //agents[i].x = 0.5 * width;
         //agents[i].y = 0.5 * height;
         //agents[i].direction = 0;
+
+        double rad = 0.4 * (width < height ? width : height);
+        agents[i].direction = randd(-M_PI, M_PI, &seed);
+        agents[i].x = -rad * cos(agents[i].direction) + width/2;
+        agents[i].y = -rad * sin(agents[i].direction) + height/2;
+    }
+}
+
+void record_position(int *agent_pos_frequency, int width, int height, struct Agent *agents, int nagents) {
+    memset(agent_pos_frequency, 0, width * height * sizeof(*agent_pos_frequency));
+    #pragma omp parallel
+    for (int i = 0; i < nagents; i++) {
+        int index = agents[i].y * width + agents[i].x;
+        int oldval = agent_pos_frequency[index];
+        while (!atomic_compare_exchange_weak(&agent_pos_frequency[index], &oldval, oldval + 1));
     }
 }
 
@@ -189,9 +206,13 @@ int main(int argc, char *argv[]) {
     // zero out memory
     memset(map.grid, 0, map.width * map.height * sizeof(*(map.grid)));
 
+
     // intialize agents
     struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
     intialize_agents(agents, nagents, map.width, map.height);
+    // record the number of agents at each point
+    int *agent_pos_frequency = malloc_or_die(map.width * map.height* sizeof(*agent_pos_frequency));
+    record_position(agent_pos_frequency, map.width, map.height, agents, nagents);
 
     //initiate FFmpeg
     int outfd;
@@ -206,12 +227,13 @@ int main(int argc, char *argv[]) {
         // Perform resolution_factor cycles per frame
         for (int j = 0; j < resolution_factor; j++) {
             //printf("----Cycle %d----\n", i*resolution_factor + j);
-            simulate_step(&map, agents, nagents, behavior_normalized, seeds);
+            simulate_step(&map, agents, nagents, agent_pos_frequency, behavior_normalized, seeds);
         }
         prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, colormap, outfd);
     }
 
     free(map.grid);
+    free(agent_pos_frequency);
     free(agents);
     destroy_colormap(colormap);
     close_pipe(outfd, pid);

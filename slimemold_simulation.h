@@ -27,5 +27,6 @@ struct Behavior {
     double trail_max;
 };
 
-void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior, unsigned int *seeds);
+// agent_pos_frequency doesn't need to be initialized. This is just to avoid repeatedly calling malloc and free
+void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, int *agent_pos_frequency, struct Behavior behavior, unsigned int *seeds);
 #endif

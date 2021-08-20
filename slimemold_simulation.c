@@ -1,6 +1,7 @@
 #include <math.h>
 #include <omp.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,9 +9,14 @@
 #include "slimemold_simulation.h"
 #include "util.h"
 
+// Used to prevent rounding overflows right at the edge
 #define EPSILON 0.001
 // 20 degrees
 #define SCATTER_BUFFER M_PI/9
+// how many agents are allowed in one cell at once
+#define MAX_PER_CELL 2
+
+//
 // get the next x after moving distance units in direction
 double next_x(double x, double distance, double direction) {
     return x + distance * cos(direction);
@@ -21,8 +27,8 @@ double next_y(double y, double distance, double direction) {
 }
 
 //gets index in map from a position
-double get_index(struct Map map, double x, double y) {
-    return (int) y * map.width + (int) x;
+double get_index(int width, double x, double y) {
+    return (int) y * width + (int) x;
 }
 
 // bounds the double between min and max
@@ -94,13 +100,6 @@ void disperse_trail(struct Map *p_map, double dispersion_rate) {
     free(p_map->grid);
     p_map->grid = next_grid;
 }
-
-void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate, double trail_max) {
-    int index = get_index(map, agent->x, agent->y);
-    double oldval = map.grid[index];
-    while (!atomic_compare_exchange_weak(&map.grid[index], &oldval, fmin(trail_max, oldval + trail_deposit_rate)));
-}
-
 // turns in the direction with the highest trail value
 void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, double sensor_angle_factor, struct Map map, unsigned int *seedp) {
     // randomize order in which directions are checked to avoid bias in certain direction
@@ -125,7 +124,7 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, d
         if (ahead_x < EPSILON || ahead_x > map.width - EPSILON || ahead_y < EPSILON || ahead_y > map.height - EPSILON) {
             continue;
         }
-        int index = get_index(map, ahead_x, ahead_y);
+        int index = get_index(map.width, ahead_x, ahead_y);
         if(map.grid[index] > max_trail) {
             max_trail = map.grid[index];
             max_direction = agent->direction + (order[i] * turn_rate);
@@ -139,39 +138,43 @@ void add_noise_to_movement(struct Agent *agent, double movement_noise, unsigned 
     agent->direction += randd(-movement_noise * sqrt(3), movement_noise * sqrt(3), seedp);
 }
 
-void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, struct Map map, unsigned int *seedp) {
-    if (*new_x < EPSILON) {
-        *new_x = EPSILON;
-        // scatter off of left wall
-        agent->direction = randd(-M_PI_2 + SCATTER_BUFFER, M_PI_2 - SCATTER_BUFFER, seedp);
-    } else if (*new_x > map.width - EPSILON) {
-        // a little is subtracted from width because x is rounded down and
-        // map[y][width] would be out of bound
-        *new_x = map.width - EPSILON;
-        // scatter off of right wall
-        agent->direction = randd(M_PI_2 + SCATTER_BUFFER, 3 * M_PI_2 - SCATTER_BUFFER, seedp);
-    }
-    // note that the directions are a little weird since y = 0 is the top wall
-    if (*new_y < EPSILON) {
-        *new_y = EPSILON;
-        // scatter off of top wall
-        agent->direction = randd(SCATTER_BUFFER, M_PI - SCATTER_BUFFER, seedp);
-    } else if (*new_y > map.height - EPSILON) {
-        *new_y = map.height - EPSILON;
-        // scatter off of bottom wall
-        agent->direction = randd(M_PI + SCATTER_BUFFER, 2 * M_PI - SCATTER_BUFFER, seedp);
-    }
+
+bool will_collide(double new_x, double new_y, int *agent_pos_frequency, struct Map map) {
+    int index = get_index(map.width, new_x, new_y);
+    return new_x < EPSILON || new_x > map.width - EPSILON ||
+            new_y < EPSILON || new_y > map.height - EPSILON ||
+            agent_pos_frequency[index] >= MAX_PER_CELL;
+
 }
 
-void move_and_check_wall_collision (struct Agent *agent, double movement_speed, struct Map map, unsigned int *seedp) {
+// The agents cannot move into a wall or into a cell with too many agents.
+// If it attempts to do so, it will not move an it's direction will be randomized.
+void move_and_deposit_trail (struct Agent *agent, double movement_speed, double trail_deposit_rate, double trail_max, struct Map map, int *agent_pos_frequency, unsigned int *seedp) {
     // move in direction
     double new_x = next_x(agent->x, movement_speed, agent->direction);
     double new_y = next_y(agent->y, movement_speed, agent->direction);
     // check for collision
-    check_wall_collision(agent, &new_x, &new_y, map, seedp);
-    // update position
-    agent->x = new_x;
-    agent->y = new_y;
+    if (will_collide(new_x, new_y, agent_pos_frequency, map)) {
+        agent->direction = randd(0, 2 * M_PI, seedp);
+    } else {
+        // check if we need to update agent_pos_frequency
+        int old_index = get_index(map.width, agent->x, agent->y);
+        int new_index = get_index(map.width, new_x, new_y);
+        if (old_index != new_index) {
+            // subtract from old location
+            int oldval = agent_pos_frequency[old_index];
+            while (!atomic_compare_exchange_weak(&agent_pos_frequency[old_index], &oldval, oldval - 1));
+            // add to new location
+            oldval = agent_pos_frequency[new_index];
+            while (!atomic_compare_exchange_weak(&agent_pos_frequency[new_index], &oldval, oldval + 1));
+        }
+        // update position
+        agent->x = new_x;
+        agent->y = new_y;
+        // deposit trail
+        double oldval = map.grid[new_index];
+        while (!atomic_compare_exchange_weak(&map.grid[new_index], &oldval, fmin(trail_max, oldval + trail_deposit_rate)));
+    }
 }
 
 void evaporate_trail (struct Map map, double evaporation_rate_exp, double evaporation_rate_lin) {
@@ -181,8 +184,9 @@ void evaporate_trail (struct Map map, double evaporation_rate_exp, double evapor
     }
 }
 
-void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior, unsigned int *seeds) {
-    // turns and moves each agent
+void move_agents(struct Map map, struct Agent *agents, int nagents, struct Behavior behavior, int* agent_pos_frequency, unsigned int *seeds) {
+    // to add randomness to which agent successfully moves
+    shuffle(agents, nagents, sizeof(*agents), &seeds[0]);
     #pragma omp parallel
     {
         // copies the value to avoid false sharing
@@ -190,19 +194,20 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
         #pragma omp for
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
-            turn_uptrail(agent, behavior.turn_rate, behavior.sensor_length, behavior.sensor_angle_factor, *p_map, &seed);
+            turn_uptrail(agent, behavior.turn_rate, behavior.sensor_length, behavior.sensor_angle_factor, map, &seed);
             add_noise_to_movement(agent, behavior.movement_noise, &seed);
-            move_and_check_wall_collision(agent, behavior.movement_speed, *p_map, &seed);
         }
-        seeds[omp_get_thread_num()] = seed;
         #pragma omp for
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
-            // possible race conditon handled in function
-            deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
+            move_and_deposit_trail(agent, behavior.movement_speed, behavior.trail_deposit_rate, behavior.trail_max, map, agent_pos_frequency, &seed);
         }
+        seeds[omp_get_thread_num()] = seed;
     }
+}
 
+void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, int *agent_pos_frequency, struct Behavior behavior, unsigned int *seeds) {
     disperse_trail(p_map, behavior.dispersion_rate);
     evaporate_trail(*p_map, behavior.evaporation_rate_exp, behavior.evaporation_rate_lin);
+    move_agents(*p_map, agents, nagents, behavior, agent_pos_frequency, seeds);
 }
