@@ -129,8 +129,8 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
 
         double rad = 0.4 * (width < height ? width : height);
         agents[i].direction = randd(-M_PI, M_PI, &seed);
-        agents[i].x = -rad * randd(0.95, 1.05, &seed) * cos(agents[i].direction) + width/2;
-        agents[i].y = -rad * randd(0.95, 1.05, &seed)* sin(agents[i].direction) + height/2;
+        agents[i].x = -rad * randd(0.95, 1.05, &seed) * sin(agents[i].direction) + width/2;
+        agents[i].y = rad * randd(0.95, 1.05, &seed)* cos(agents[i].direction) + height/2;
     }
 }
 
