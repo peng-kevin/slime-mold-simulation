@@ -24,7 +24,7 @@ double next_y(double y, double distance, double direction) {
 }
 
 //gets index in map from a position
-double get_index(int width, double x, double y) {
+int get_index(int width, double x, double y) {
     return (int) y * width + (int) x;
 }
 
@@ -171,10 +171,19 @@ void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, st
     }
 }
 
-void move_and_check_wall_collision (struct Agent *agent, double movement_speed, struct Map map, unsigned int *seedp) {
+void move_and_check_wall_collision (struct Agent *agent, double movement_speed, double sensor_length, double trail_max, struct Map map, unsigned int *seedp) {
+    // check trail strength from forward sensor
+    double sensor_x = next_x(agent->x, sensor_length, agent->direction);
+    sensor_x = bound(sensor_x, EPSILON, map.width - EPSILON);
+    double sensor_y = next_y(agent->y, sensor_length, agent->direction);
+    sensor_y = bound(sensor_y, EPSILON, map.height - EPSILON);
+    double trail_strength = map.grid[get_index(map.width, sensor_x, sensor_y)];
+    // set movement speed base on trail strength
+    double cur_speed = movement_speed * (0.2 + 0.8 * (trail_strength / trail_max));
+
     // move in direction
-    double new_x = next_x(agent->x, movement_speed, agent->direction);
-    double new_y = next_y(agent->y, movement_speed, agent->direction);
+    double new_x = next_x(agent->x, cur_speed, agent->direction);
+    double new_y = next_y(agent->y, cur_speed, agent->direction);
     // check for collision
     check_wall_collision(agent, &new_x, &new_y, map, seedp);
     // update position
@@ -211,7 +220,7 @@ void move_agents(struct Map map, struct Agent *agents, int nagents, struct Behav
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
             set_direction(agent, behavior.turn_rate, behavior.sensor_length, behavior.sensor_angle_factor, behavior.movement_noise, map, agent_pos_freq, &seed);
-            move_and_check_wall_collision(agent, behavior.movement_speed, map, &seed);
+            move_and_check_wall_collision(agent, behavior.movement_speed, behavior.sensor_length, behavior.trail_max, map, &seed);
         }
         seeds[omp_get_thread_num()] = seed;
     }
