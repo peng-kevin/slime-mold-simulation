@@ -11,6 +11,9 @@
 #define EPSILON 0.001
 // 20 degrees
 #define SCATTER_BUFFER M_PI/9
+// max number of agents that be in once cell before randomization
+#define AGENTS_PER_CELL_THRESHOLD 2
+
 // get the next x after moving distance units in direction
 double next_x(double x, double distance, double direction) {
     return x + distance * cos(direction);
@@ -21,13 +24,24 @@ double next_y(double y, double distance, double direction) {
 }
 
 //gets index in map from a position
-double get_index(struct Map map, double x, double y) {
-    return (int) y * map.width + (int) x;
+double get_index(int width, double x, double y) {
+    return (int) y * width + (int) x;
 }
 
 // bounds the double between min and max
 double bound(double n, double min, double max) {
     return fmax(min, fmin(max, n));
+}
+
+// Given some space to store every cell in widthxheight, stores the number of agents there
+void record_position(int *agent_pos_freq, int width, int height, struct Agent *agents, int nagents) {
+    memset(agent_pos_freq, 0, width * height * sizeof(*agent_pos_freq));
+    #pragma omp parallel for
+    for (int i = 0; i < nagents; i++) {
+        int index = get_index(width, agents[i].x, agents[i].y);
+        int oldval = agent_pos_freq[index];
+        while (!atomic_compare_exchange_weak(&agent_pos_freq[index], &oldval, oldval + 1));
+    }
 }
 
 void disperse_grid(double *grid, double *next_grid, int width, int height, double dispersion_rate) {
@@ -95,12 +109,6 @@ void disperse_trail(struct Map *p_map, double dispersion_rate) {
     p_map->grid = next_grid;
 }
 
-void deposit_trail(struct Map map, struct Agent *agent, double trail_deposit_rate, double trail_max) {
-    int index = get_index(map, agent->x, agent->y);
-    double oldval = map.grid[index];
-    while (!atomic_compare_exchange_weak(&map.grid[index], &oldval, fmin(trail_max, oldval + trail_deposit_rate)));
-}
-
 // turns in the direction with the highest trail value
 void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, double sensor_angle_factor, struct Map map, unsigned int *seedp) {
     // randomize order in which directions are checked to avoid bias in certain direction
@@ -125,7 +133,7 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, d
         if (ahead_x < EPSILON || ahead_x > map.width - EPSILON || ahead_y < EPSILON || ahead_y > map.height - EPSILON) {
             continue;
         }
-        int index = get_index(map, ahead_x, ahead_y);
+        int index = get_index(map.width, ahead_x, ahead_y);
         if(map.grid[index] > max_trail) {
             max_trail = map.grid[index];
             max_direction = agent->direction + (order[i] * turn_rate);
@@ -181,8 +189,20 @@ void evaporate_trail (struct Map map, double evaporation_rate_exp, double evapor
     }
 }
 
-void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior, unsigned int *seeds) {
-    // turns and moves each agent
+void set_direction(struct Agent *agent, double turn_rate, double sensor_length, double sensor_angle_factor, double movement_noise, struct Map map, int *agent_pos_freq, unsigned int *seedp) {
+    int index = get_index(map.width, agent->x, agent->y);
+    int freq = agent_pos_freq[index];
+    if (freq > AGENTS_PER_CELL_THRESHOLD && randint(1, freq, seedp) > AGENTS_PER_CELL_THRESHOLD) {
+        // randomized direction
+        agent->direction = randd(-M_PI, M_PI, seedp);
+    } else {
+        turn_uptrail(agent, turn_rate, sensor_length, sensor_angle_factor, map, seedp);
+        add_noise_to_movement(agent, movement_noise, seedp);
+    }
+}
+
+void move_agents(struct Map map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds) {
+    record_position(agent_pos_freq, map.width, map.height, agents, nagents);
     #pragma omp parallel
     {
         // copies the value to avoid false sharing
@@ -190,19 +210,26 @@ void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct 
         #pragma omp for
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
-            turn_uptrail(agent, behavior.turn_rate, behavior.sensor_length, behavior.sensor_angle_factor, *p_map, &seed);
-            add_noise_to_movement(agent, behavior.movement_noise, &seed);
-            move_and_check_wall_collision(agent, behavior.movement_speed, *p_map, &seed);
+            set_direction(agent, behavior.turn_rate, behavior.sensor_length, behavior.sensor_angle_factor, behavior.movement_noise, map, agent_pos_freq, &seed);
+            move_and_check_wall_collision(agent, behavior.movement_speed, map, &seed);
         }
         seeds[omp_get_thread_num()] = seed;
-        #pragma omp for
-        for (int i = 0; i < nagents; i++) {
-            struct Agent *agent = &agents[i];
-            // possible race conditon handled in function
-            deposit_trail(*p_map, agent, behavior.trail_deposit_rate, behavior.trail_max);
-        }
     }
+}
 
+void deposit_trail(struct Map map, struct Agent *agents, int nagents, double trail_deposit_rate, double trail_max) {
+    #pragma omp parallel for
+    for (int i = 0; i < nagents; i++) {
+        int index = get_index(map.width, agents[i].x, agents[i].y);
+        double oldval = map.grid[index];
+        while (!atomic_compare_exchange_weak(&map.grid[index], &oldval, fmin(trail_max, oldval + trail_deposit_rate)));
+    }
+}
+
+void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds) {
     disperse_trail(p_map, behavior.dispersion_rate);
     evaporate_trail(*p_map, behavior.evaporation_rate_exp, behavior.evaporation_rate_lin);
+
+    move_agents(*p_map, agents, nagents, behavior, agent_pos_freq, seeds);
+    deposit_trail(*p_map, agents, nagents, behavior.trail_deposit_rate, behavior.trail_max);
 }

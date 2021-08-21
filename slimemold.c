@@ -129,8 +129,8 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
 
         double rad = 0.4 * (width < height ? width : height);
         agents[i].direction = randd(-M_PI, M_PI, &seed);
-        agents[i].x = -rad * cos(agents[i].direction) + width/2;
-        agents[i].y = -rad * sin(agents[i].direction) + height/2;
+        agents[i].x = -rad * randd(0.95, 1.05, &seed) * cos(agents[i].direction) + width/2;
+        agents[i].y = -rad * randd(0.95, 1.05, &seed)* sin(agents[i].direction) + height/2;
     }
 }
 
@@ -198,6 +198,8 @@ int main(int argc, char *argv[]) {
     // intialize agents
     struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
     intialize_agents(agents, nagents, map.width, map.height);
+    // record the number of agents at each point
+    int *agent_pos_freq = malloc_or_die(map.width * map.height* sizeof(*agent_pos_freq));
 
     //initiate FFmpeg
     int outfd;
@@ -212,7 +214,7 @@ int main(int argc, char *argv[]) {
         // Perform resolution_factor cycles per frame
         for (int j = 0; j < resolution_factor; j++) {
             //printf("----Cycle %d----\n", i*resolution_factor + j);
-            simulate_step(&map, agents, nagents, behavior_normalized, seeds);
+            simulate_step(&map, agents, nagents, behavior_normalized, agent_pos_freq, seeds);
         }
         prepare_and_write_image(map.grid, map.width, map.height, resolution_factor, colormap, outfd);
     }
