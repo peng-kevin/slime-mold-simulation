@@ -87,24 +87,6 @@ void destroy_colormap(struct ColorMap colormap) {
     free(colormap.colors);
 }
 
-double* downscale_image(double *image, int width, int height, int factor) {
-    // size of the resulting image
-    int image_width = width / factor;
-    int image_height = height / factor;
-    double *new_image = malloc_or_die(image_width * image_height * sizeof(*new_image));
-    memset(new_image, 0, image_width * image_height * sizeof(*new_image));
-
-    double mult_factor = 1.0/(factor * factor);
-    for (int row = 0; row < height; row++) {
-        for (int col = 0; col < width; col++) {
-            int image_row = row / factor;
-            int image_col = col / factor;
-            new_image[image_row * image_width + image_col] += mult_factor * image[row * width + col];
-        }
-    }
-    return new_image;
-}
-
 struct Color color_pixel(double val, struct ColorMap colormap, double minval, double maxval) {
     int index = (int) (val - minval) * (colormap.length / (maxval - minval));
     // highest value will be out of bounds
