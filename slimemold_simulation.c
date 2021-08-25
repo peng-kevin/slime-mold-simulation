@@ -110,7 +110,7 @@ void disperse_trail(struct Map *p_map, double dispersion_rate) {
 }
 
 // turns in the direction with the highest trail value
-void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, double sensor_angle_factor, struct Map map, unsigned int *seedp) {
+void turn_uptrail(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, struct Map map, unsigned int *seedp) {
     // randomize order in which directions are checked to avoid bias in certain direction
     const int length = 3;
     int order[3];
@@ -126,7 +126,7 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, d
     double max_direction = agent->direction;
     double max_trail = -INFINITY;
     for (int i = 0; i < length; i++) {
-        double dir = agent->direction + (order[i] * turn_rate * sensor_angle_factor);
+        double dir = agent->direction + (order[i] * sensor_angle);
         double ahead_x = next_x(agent->x, sensor_length, dir);
         double ahead_y = next_y(agent->y, sensor_length, dir);
         // check if it is in bounds
@@ -136,15 +136,15 @@ void turn_uptrail(struct Agent *agent, double turn_rate, double sensor_length, d
         int index = get_index(map.width, ahead_x, ahead_y);
         if(map.grid[index] > max_trail) {
             max_trail = map.grid[index];
-            max_direction = agent->direction + (order[i] * turn_rate);
+            max_direction = agent->direction + (order[i] * rotation_angle);
         }
     }
     agent->direction = max_direction;
 }
 
-void add_noise_to_movement(struct Agent *agent, double movement_noise, unsigned int *seedp) {
+void add_noise_to_movement(struct Agent *agent, double jitter_angle, unsigned int *seedp) {
     // returns uniform distribution with correct standard deviation
-    agent->direction += randd(-movement_noise * sqrt(3), movement_noise * sqrt(3), seedp);
+    agent->direction += randd(-jitter_angle, jitter_angle, seedp);
 }
 
 void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, struct Map map, unsigned int *seedp) {
@@ -171,7 +171,7 @@ void check_wall_collision (struct Agent *agent, double *new_x, double *new_y, st
     }
 }
 
-void move_and_check_wall_collision (struct Agent *agent, double movement_speed, double sensor_length, double trail_max, struct Map map, unsigned int *seedp) {
+void move_and_check_wall_collision (struct Agent *agent, double step_size, double sensor_length, double trail_max, struct Map map, unsigned int *seedp) {
     // check trail strength from forward sensor
     double sensor_x = next_x(agent->x, sensor_length, agent->direction);
     sensor_x = bound(sensor_x, EPSILON, map.width - EPSILON);
@@ -179,7 +179,7 @@ void move_and_check_wall_collision (struct Agent *agent, double movement_speed, 
     sensor_y = bound(sensor_y, EPSILON, map.height - EPSILON);
     double trail_strength = map.grid[get_index(map.width, sensor_x, sensor_y)];
     // set movement speed base on trail strength
-    double cur_speed = movement_speed * (0.2 + 0.8 * (trail_strength / trail_max));
+    double cur_speed = step_size * (0.2 + 0.8 * (trail_strength / trail_max));
 
     // move in direction
     double new_x = next_x(agent->x, cur_speed, agent->direction);
@@ -198,15 +198,15 @@ void evaporate_trail (struct Map map, double evaporation_rate_exp, double evapor
     }
 }
 
-void set_direction(struct Agent *agent, double turn_rate, double sensor_length, double sensor_angle_factor, double movement_noise, struct Map map, int *agent_pos_freq, unsigned int *seedp) {
+void set_direction(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, double jitter_angle, struct Map map, int *agent_pos_freq, unsigned int *seedp) {
     int index = get_index(map.width, agent->x, agent->y);
     int freq = agent_pos_freq[index];
     if (freq > AGENTS_PER_CELL_THRESHOLD && randint(1, freq, seedp) > AGENTS_PER_CELL_THRESHOLD) {
         // randomized direction
         agent->direction = randd(-M_PI, M_PI, seedp);
     } else {
-        turn_uptrail(agent, turn_rate, sensor_length, sensor_angle_factor, map, seedp);
-        add_noise_to_movement(agent, movement_noise, seedp);
+        turn_uptrail(agent, rotation_angle, sensor_length, sensor_angle, map, seedp);
+        add_noise_to_movement(agent, jitter_angle, seedp);
     }
 }
 
@@ -219,8 +219,8 @@ void move_agents(struct Map map, struct Agent *agents, int nagents, struct Behav
         #pragma omp for
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
-            set_direction(agent, behavior.turn_rate, behavior.sensor_length, behavior.sensor_angle_factor, behavior.movement_noise, map, agent_pos_freq, &seed);
-            move_and_check_wall_collision(agent, behavior.movement_speed, behavior.sensor_length, behavior.trail_max, map, &seed);
+            set_direction(agent, behavior.rotation_angle, behavior.sensor_length, behavior.sensor_angle, behavior.jitter_angle, map, agent_pos_freq, &seed);
+            move_and_check_wall_collision(agent, behavior.step_size, behavior.sensor_length, behavior.trail_max, map, &seed);
         }
         seeds[omp_get_thread_num()] = seed;
     }

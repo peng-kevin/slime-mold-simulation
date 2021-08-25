@@ -47,36 +47,6 @@ double parse_double(char *str, char *val, double min, double max) {
     return n;
 }
 
-// Changes the parameters so they work with the assumption that dx = 1 dt = 1
-struct Behavior normalize_behavior(struct Behavior behavior, int fps) {
-    struct Behavior behavior_N;
-    // Cell distance and steps per second scale in opposite directions
-    behavior_N.movement_speed = behavior.movement_speed / fps;
-    // because each square is smaller, this is factor^2 / (factor * fps)
-    behavior_N.trail_deposit_rate = behavior.trail_deposit_rate / fps;
-    /*
-     * using the Central Limit Theorem, we find that the distribution after
-     * summing n random numbers has a standard deviation of sqrt(n)*sigma, so
-     * we need to divide sigma by sqrt(n) to keep the distribution the same
-     */
-    behavior_N.movement_noise = behavior.movement_noise / sqrt(fps);
-    // Same time to turn same amount
-    behavior_N.turn_rate = behavior.turn_rate / (fps);
-    // no change, just need to ensure that sensor stays ahead of own trail
-    behavior_N.sensor_length = behavior.sensor_length;
-    // no change, this is a factor for the turn rate
-    behavior_N.sensor_angle_factor = behavior.sensor_angle_factor;
-    // dispersion_rate * dt / (dx)^2
-    behavior_N.dispersion_rate = behavior.dispersion_rate / fps;
-    // Each cell evaporates exponentially
-    behavior_N.evaporation_rate_exp = behavior.evaporation_rate_exp / (fps);
-    // Same rate per cell at all factor levels
-    behavior_N.evaporation_rate_lin = behavior.evaporation_rate_lin / (fps);
-    // The trail might be concentrated in a subcell
-    behavior_N.trail_max = behavior.trail_max;
-    return behavior_N;
-}
-
 void write_image (struct Color *image, int width, int height, int fd) {
     ssize_t written;
     // write the header
@@ -128,8 +98,8 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
 int main(int argc, char *argv[]) {
     // Parse the command line arguments
     if (argc != 16) {
-        fprintf(stderr, "usage: %s width height fps seconds nagents movement_speed "
-                "trail_deposit_rate movement_noise turn_rate sensor_length sensor_angle_factor dispersion_rate "
+        fprintf(stderr, "usage: %s width height fps seconds nagents step_size "
+                "trail_deposit_rate jitter_angle rotation_angle sensor_length sensor_angle dispersion_rate "
                 "evaporation_rate_exp evaporation_rate_lin output_file\n", argv[0]);
         exit(1);
     }
@@ -140,12 +110,12 @@ int main(int argc, char *argv[]) {
     int fps = parse_int(argv[3], "fps", 1, INT_MAX);
     int seconds = parse_int(argv[4], "seconds", 1, INT_MAX);
     int nagents = parse_int(argv[5], "nagents", 1, INT_MAX);
-    behavior.movement_speed = parse_double(argv[6], "movement_speed", 0, INFINITY);
+    behavior.step_size = parse_double(argv[6], "step_size", 0, INFINITY);
     behavior.trail_deposit_rate = parse_double(argv[7], "trail_deposit_rate", 0, INFINITY);
-    behavior.movement_noise = parse_double(argv[8], "movement_noise", 0, INFINITY);
-    behavior.turn_rate = parse_double(argv[9], "turn_rate", 0, INFINITY);
+    behavior.jitter_angle = parse_double(argv[8], "jitter_angle", 0, INFINITY);
+    behavior.rotation_angle = parse_double(argv[9], "rotation_angle", 0, INFINITY);
     behavior.sensor_length = parse_double(argv[10], "sensor_length", 0, INFINITY);
-    behavior.sensor_angle_factor = parse_double(argv[11], "sensor_angle_factor", 0, INFINITY);
+    behavior.sensor_angle = parse_double(argv[11], "sensor_angle", 0, INFINITY);
     behavior.dispersion_rate = parse_double(argv[12], "dispersion_rate", 0, INFINITY);
     behavior.evaporation_rate_exp = parse_double(argv[13], "evaporation_rate_exp", 0, 1);
     behavior.evaporation_rate_lin = parse_double(argv[14], "evaporation_rate_lin", 0, INFINITY);
@@ -161,12 +131,9 @@ int main(int argc, char *argv[]) {
         seeds[i] = curtime ^ (i + 1);
     }
 
-    // normalize behavior
-    struct Behavior behavior_normalized = normalize_behavior(behavior, fps);
-
     //check for instability
-    if (behavior_normalized.dispersion_rate > 0.25) {
-        printf(RED "Warning:" RESET " dispersion unstable because (dispersion_rate)(dt)/(dx^2) = %lf > 0.25\n", behavior_normalized.dispersion_rate);
+    if (behavior.dispersion_rate > 0.25) {
+        printf(RED "Warning:" RESET " dispersion unstable because dispersion_rate = %lf > 0.25\n", behavior.dispersion_rate);
     }
 
     // reads in color map
@@ -201,7 +168,7 @@ int main(int argc, char *argv[]) {
     // main simulation loop
     for (int i = 0; i < seconds * fps; i++) {
         //printf("----Cycle %d----\n", i);
-        simulate_step(&map, agents, nagents, behavior_normalized, agent_pos_freq, seeds);
+        simulate_step(&map, agents, nagents, behavior, agent_pos_freq, seeds);
         prepare_and_write_image(map.grid, map.width, map.height, colormap, outfd);
     }
 

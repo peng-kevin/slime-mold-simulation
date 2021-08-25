@@ -15,12 +15,12 @@ struct Map {
 
 // Parameters that control the simulation
 struct Behavior {
-    double movement_speed;
+    double step_size;
     double trail_deposit_rate;
-    double movement_noise;
-    double turn_rate;
+    double jitter_angle;
+    double rotation_angle;
     double sensor_length;
-    double sensor_angle_factor;
+    double sensor_angle;
     double dispersion_rate;
     double evaporation_rate_exp;
     double evaporation_rate_lin;
