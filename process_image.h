@@ -39,9 +39,9 @@ void destroy_colormap(struct ColorMap colormap);
 /**
  * Returns an image where every pixel is colored according to the corresponding value and given color_map
  *
- * Image must be in row-major order. Pixels below minval or treated as minval
- * and pixels above maxval are treated as maxval.
+ * Image must be in row-major order. The minval is assumed to be 0. Pixels
+ * below 0 are treated as 0 and pixels above maxval are treated as maxval.
  */
-struct Color* color_image(double *image, int width, int height, struct ColorMap colormap, double minval, double maxval);
+struct Color* color_image(double *trail_grid, double *food_grid, int width, int height, struct ColorMap colormap, double trail_maxval, double food_maxval);
 
 #endif

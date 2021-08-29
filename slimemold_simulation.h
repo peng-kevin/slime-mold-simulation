@@ -27,5 +27,5 @@ struct Behavior {
     double trail_max;
 };
 
-void simulate_step(struct Map *p_map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds);
+void simulate_step(struct Map *p_trail_map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds);
 #endif

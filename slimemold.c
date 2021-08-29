@@ -26,6 +26,15 @@
 #define RESET "\x1B[0m"
 
 #define TRAIL_MAX 1000
+// the max food value is the factor times the max trail value
+#define FOOD_FACTOR 0.1
+// provides how spread out the food chemicals are
+#define FOOD_SIGMA 10
+#define N_FOOD 10
+
+struct Coord {
+    int x, y;
+};
 
 int parse_int(char *str, char *val, int min, int max) {
     int n = atoi(str);
@@ -70,8 +79,8 @@ void write_image (struct Color *image, int width, int height, int fd) {
     fclose(fp);*/
 }
 
-void prepare_and_write_image (double* map, int width, int height, struct ColorMap colormap, int fd) {
-    struct Color *prepared_image = color_image(map, width, height, colormap, 0, TRAIL_MAX);
+void prepare_and_write_image (double* trail_map, double* food_map, int width, int height, struct ColorMap colormap, int fd) {
+    struct Color *prepared_image = color_image(trail_map, food_map, width, height, colormap, TRAIL_MAX, FOOD_FACTOR * TRAIL_MAX);
     write_image(prepared_image, width, height, fd);
     free(prepared_image);
 }
@@ -92,6 +101,33 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
         //agents[i].direction = randd(-M_PI, M_PI, &seed);
         //agents[i].x = -rad * randd(0.95, 1.05, &seed) * sin(agents[i].direction) + width/2;
         //agents[i].y = rad * randd(0.95, 1.05, &seed)* cos(agents[i].direction) + height/2;
+    }
+}
+
+void initialize_foods(struct Coord *foods, int nfood, int width, int height) {
+    unsigned int seed = time(0);
+    for (int i = 0; i < nfood; i++) {
+        foods[i].x = randint(0, width - 1, &seed);
+        foods[i].y = randint(0, height - 1, &seed);
+    }
+}
+
+void fill_food_map(struct Map food_map, struct Coord *foods, int nfood) {
+    for (int i = 0; i < nfood; i++) {
+        int cx = foods[i].x;
+        int cy = foods[i].y;
+        int start_y = fmax(cy - 3 * FOOD_SIGMA, 0);
+        int end_y = fmin(cy + 3 * FOOD_SIGMA, food_map.height - 1);
+        int start_x = fmax(cx - 3 * FOOD_SIGMA, 0);
+        int end_x = fmin(cx + 3 * FOOD_SIGMA, food_map.width - 1);
+        // y in outer loop for better cache performance
+        for (int y = start_y; y <= end_y; y++) {
+            for (int x = start_x; x <= end_x; x++) {
+                // 2d gaussian function
+                double food_value = TRAIL_MAX * FOOD_FACTOR *exp(-(pow(cx - x, 2) + pow(cy - y, 2))/(2.0 * FOOD_SIGMA * FOOD_SIGMA));
+                food_map.grid[y * food_map.width + x] = food_value;
+            }
+        }
     }
 }
 
@@ -144,18 +180,27 @@ int main(int argc, char *argv[]) {
     }
 
     // allocate space for the grid
-    struct Map map;
-    map.width = width;
-    map.height = height;
-    map.grid = malloc_or_die(map.width * map.height * sizeof(*(map.grid)));
+    struct Map trail_map;
+    trail_map.width = width;
+    trail_map.height = height;
+    trail_map.grid = malloc_or_die(trail_map.width * trail_map.height * sizeof(*(trail_map.grid)));
     // zero out memory
-    memset(map.grid, 0, map.width * map.height * sizeof(*(map.grid)));
+    memset(trail_map.grid, 0, trail_map.width * trail_map.height * sizeof(*(trail_map.grid)));
 
     // intialize agents
     struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
-    intialize_agents(agents, nagents, map.width, map.height);
+    intialize_agents(agents, nagents, trail_map.width, trail_map.height);
     // record the number of agents at each point
-    int *agent_pos_freq = malloc_or_die(map.width * map.height* sizeof(*agent_pos_freq));
+    int *agent_pos_freq = malloc_or_die(trail_map.width * trail_map.height* sizeof(*agent_pos_freq));
+
+    // initialize food
+    struct Coord *foods = malloc_or_die(N_FOOD * sizeof(*foods));
+    struct Map food_map;
+    food_map.width = trail_map.width;
+    food_map.height = trail_map.height;
+    food_map.grid = malloc_or_die(food_map.width * food_map.height * sizeof(*food_map.grid));
+    initialize_foods(foods, N_FOOD, food_map.width, food_map.height);
+    fill_food_map(food_map, foods, N_FOOD);
 
     //initiate FFmpeg
     int outfd;
@@ -168,11 +213,11 @@ int main(int argc, char *argv[]) {
     // main simulation loop
     for (int i = 0; i < seconds * fps; i++) {
         //printf("----Cycle %d----\n", i);
-        simulate_step(&map, agents, nagents, behavior, agent_pos_freq, seeds);
-        prepare_and_write_image(map.grid, map.width, map.height, colormap, outfd);
+        simulate_step(&trail_map, agents, nagents, behavior, agent_pos_freq, seeds);
+        prepare_and_write_image(trail_map.grid, food_map.grid, trail_map.width, trail_map.height, colormap, outfd);
     }
 
-    free(map.grid);
+    free(trail_map.grid);
     free(agents);
     destroy_colormap(colormap);
     close_pipe(outfd, pid);

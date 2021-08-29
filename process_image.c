@@ -9,6 +9,9 @@
 
 #define ARRAY_RESIZE_INCREMENT 100;
 
+// value from 0 to 1, with 0 being invisible and 1 being maximally visible
+#define FOOD_VISIBILITY 0.2
+
 struct ColorMap load_colormap(const char *filename) {
     struct ColorMap cmap;
     int arraysize = ARRAY_RESIZE_INCREMENT;
@@ -87,22 +90,30 @@ void destroy_colormap(struct ColorMap colormap) {
     free(colormap.colors);
 }
 
-struct Color color_pixel(double val, struct ColorMap colormap, double minval, double maxval) {
-    int index = (int) (val - minval) * (colormap.length / (maxval - minval));
+struct Color color_pixel(double trail_val, double food_val, struct ColorMap colormap, double trail_maxval, double food_maxval) {
+    struct Color color;
+    int trail_index = (int) trail_val * (colormap.length / trail_maxval);
     // highest value will be out of bounds
-    if (index == colormap.length) {
-        index--;
+    if (trail_index == colormap.length) {
+        trail_index--;
     }
-    return colormap.colors[index];
+    struct Color trail_color = colormap.colors[trail_index];
+    // treat the food color as if it has a certain transparency alpha
+    double food_alpha = FOOD_VISIBILITY * food_val / food_maxval;
+    color.r = trail_color.r * (1 - food_alpha);
+    color.g = trail_color.g * (1 - food_alpha) + 255 * food_alpha;
+    color.b = trail_color.b * (1 - food_alpha);
+    return color;
 }
 
-struct Color* color_image(double *image, int width, int height, struct ColorMap colormap, double minval, double maxval) {
+struct Color* color_image(double *trail_grid, double *food_grid, int width, int height, struct ColorMap colormap, double trail_maxval, double food_maxval) {
     struct Color *new_image = malloc_or_die(width * height *sizeof(*new_image));
     #pragma omp parallel for
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < width; col++) {
-            double val = fmax(fmin(image[row * width + col], maxval), minval);
-            new_image[row * width + col] = color_pixel(val, colormap, minval, maxval);
+            double trail_val = fmax(fmin(trail_grid[row * width + col], trail_maxval), 0);
+            double food_val = fmax(fmin(food_grid[row * width + col], food_maxval), 0);
+            new_image[row * width + col] = color_pixel(trail_val, food_val, colormap, trail_maxval, food_maxval);
         }
     }
     return new_image;
