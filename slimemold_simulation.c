@@ -9,10 +9,10 @@
 #include "util.h"
 
 #define EPSILON 0.001
-// 20 degrees
-#define SCATTER_BUFFER M_PI/9
+// 45 degrees
+#define SCATTER_BUFFER M_PI/4
 // max number of agents that be in once cell before randomization
-#define AGENTS_PER_CELL_THRESHOLD 2
+#define AGENTS_PER_CELL_THRESHOLD 1
 
 // get the next x after moving distance units in direction
 double next_x(double x, double distance, double direction) {
@@ -110,7 +110,7 @@ void disperse_trail(struct Map *p_trail_map, double dispersion_rate) {
 }
 
 // turns in the direction with the highest trail value
-void turn_uptrail(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, struct Map trail_map, unsigned int *seedp) {
+void turn_uptrail(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, struct Map trail_map, struct Map food_map, unsigned int *seedp) {
     // randomize order in which directions are checked to avoid bias in certain direction
     const int length = 3;
     int order[3];
@@ -134,8 +134,8 @@ void turn_uptrail(struct Agent *agent, double rotation_angle, double sensor_leng
             continue;
         }
         int index = get_index(trail_map.width, ahead_x, ahead_y);
-        if(trail_map.grid[index] > max_trail) {
-            max_trail = trail_map.grid[index];
+        if(trail_map.grid[index] + food_map.grid[index] > max_trail) {
+            max_trail = trail_map.grid[index] + food_map.grid[index];
             max_direction = agent->direction + (order[i] * rotation_angle);
         }
     }
@@ -198,19 +198,19 @@ void evaporate_trail (struct Map trail_map, double evaporation_rate_exp, double 
     }
 }
 
-void set_direction(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, double jitter_angle, struct Map trail_map, int *agent_pos_freq, unsigned int *seedp) {
+void set_direction(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, double jitter_angle, struct Map trail_map, struct Map food_map, int *agent_pos_freq, unsigned int *seedp) {
     int index = get_index(trail_map.width, agent->x, agent->y);
     int freq = agent_pos_freq[index];
     if (freq > AGENTS_PER_CELL_THRESHOLD && randint(1, freq, seedp) > AGENTS_PER_CELL_THRESHOLD) {
         // randomized direction
         agent->direction = randd(-M_PI, M_PI, seedp);
     } else {
-        turn_uptrail(agent, rotation_angle, sensor_length, sensor_angle, trail_map, seedp);
+        turn_uptrail(agent, rotation_angle, sensor_length, sensor_angle, trail_map, food_map, seedp);
         add_noise_to_movement(agent, jitter_angle, seedp);
     }
 }
 
-void move_agents(struct Map trail_map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds) {
+void move_agents(struct Map trail_map, struct Map food_map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds) {
     record_position(agent_pos_freq, trail_map.width, trail_map.height, agents, nagents);
     #pragma omp parallel
     {
@@ -219,7 +219,7 @@ void move_agents(struct Map trail_map, struct Agent *agents, int nagents, struct
         #pragma omp for
         for (int i = 0; i < nagents; i++) {
             struct Agent *agent = &agents[i];
-            set_direction(agent, behavior.rotation_angle, behavior.sensor_length, behavior.sensor_angle, behavior.jitter_angle, trail_map, agent_pos_freq, &seed);
+            set_direction(agent, behavior.rotation_angle, behavior.sensor_length, behavior.sensor_angle, behavior.jitter_angle, trail_map, food_map, agent_pos_freq, &seed);
             move_and_check_wall_collision(agent, behavior.step_size, behavior.sensor_length, behavior.trail_max, trail_map, &seed);
         }
         seeds[omp_get_thread_num()] = seed;
@@ -235,10 +235,10 @@ void deposit_trail(struct Map trail_map, struct Agent *agents, int nagents, doub
     }
 }
 
-void simulate_step(struct Map *p_trail_map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds) {
+void simulate_step(struct Map *p_trail_map, struct Map food_map, struct Agent *agents, int nagents, struct Behavior behavior, int *agent_pos_freq, unsigned int *seeds) {
     disperse_trail(p_trail_map, behavior.dispersion_rate);
     evaporate_trail(*p_trail_map, behavior.evaporation_rate_exp, behavior.evaporation_rate_lin);
 
-    move_agents(*p_trail_map, agents, nagents, behavior, agent_pos_freq, seeds);
+    move_agents(*p_trail_map, food_map, agents, nagents, behavior, agent_pos_freq, seeds);
     deposit_trail(*p_trail_map, agents, nagents, behavior.trail_deposit_rate, behavior.trail_max);
 }

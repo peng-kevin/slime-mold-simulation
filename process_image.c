@@ -10,7 +10,7 @@
 #define ARRAY_RESIZE_INCREMENT 100;
 
 // value from 0 to 1, with 0 being invisible and 1 being maximally visible
-#define FOOD_VISIBILITY 0.2
+#define FOOD_VISIBILITY 0.5
 
 struct ColorMap load_colormap(const char *filename) {
     struct ColorMap cmap;

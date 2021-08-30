@@ -27,10 +27,13 @@
 
 #define TRAIL_MAX 1000
 // the max food value is the factor times the max trail value
-#define FOOD_FACTOR 0.1
+#define FOOD_FACTOR 2
 // provides how spread out the food chemicals are
 #define FOOD_SIGMA 10
 #define N_FOOD 10
+
+// how many cycles between changing the food
+#define FOOD_CHANGE_PERIOD 1800
 
 struct Coord {
     int x, y;
@@ -85,13 +88,12 @@ void prepare_and_write_image (double* trail_map, double* food_map, int width, in
     free(prepared_image);
 }
 
-void intialize_agents(struct Agent *agents, int nagents, int width, int height) {
+void intialize_agents(struct Agent *agents, int nagents, int width, int height, unsigned int* seedp) {
     // give each agent a random position and direction
-    unsigned int seed = time(0);
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = randd(0, width, &seed);
-        agents[i].y = randd(0, height, &seed);
-        agents[i].direction = randd(0, 2 * M_PI, &seed);
+        agents[i].x = randd(0, width, seedp);
+        agents[i].y = randd(0, height, seedp);
+        agents[i].direction = randd(0, 2 * M_PI, seedp);
 
         //agents[i].x = 0.5 * width;
         //agents[i].y = 0.5 * height;
@@ -104,28 +106,42 @@ void intialize_agents(struct Agent *agents, int nagents, int width, int height) 
     }
 }
 
-void initialize_foods(struct Coord *foods, int nfood, int width, int height) {
-    unsigned int seed = time(0);
+void initialize_foods(struct Coord *foods, int nfood, int width, int height, unsigned int* seedp) {
     for (int i = 0; i < nfood; i++) {
-        foods[i].x = randint(0, width - 1, &seed);
-        foods[i].y = randint(0, height - 1, &seed);
+        foods[i].x = randint( (int) (0.1 * width), (int) (0.9 * width), seedp);
+        foods[i].y = randint((int) (0.1 * height), (int) (0.9 * height), seedp);
     }
 }
 
+// randomly changes two food to another location
+void change_food(struct Coord *foods, int nfood, int width, int height, unsigned int* seedp) {
+    int i1 = randint(0, nfood - 1, seedp);
+    int i2 = randint(0, nfood - 2, seedp);
+    if (i2 >= i1) {
+        i2++;
+    }
+    foods[i1].x = randint( (int) (0.1 * width), (int) (0.9 * width), seedp);
+    foods[i1].y = randint((int) (0.1 * height), (int) (0.9 * height), seedp);
+
+    foods[i2].x = randint( (int) (0.1 * width), (int) (0.9 * width), seedp);
+    foods[i2].y = randint((int) (0.1 * height), (int) (0.9 * height), seedp);
+}
+
 void fill_food_map(struct Map food_map, struct Coord *foods, int nfood) {
+    memset(food_map.grid, 0, food_map.width * food_map.height * sizeof(*food_map.grid));
     for (int i = 0; i < nfood; i++) {
         int cx = foods[i].x;
         int cy = foods[i].y;
-        int start_y = fmax(cy - 3 * FOOD_SIGMA, 0);
-        int end_y = fmin(cy + 3 * FOOD_SIGMA, food_map.height - 1);
-        int start_x = fmax(cx - 3 * FOOD_SIGMA, 0);
-        int end_x = fmin(cx + 3 * FOOD_SIGMA, food_map.width - 1);
+        int start_y = fmax(cy - 4 * FOOD_SIGMA, 0);
+        int end_y = fmin(cy + 4 * FOOD_SIGMA, food_map.height - 1);
+        int start_x = fmax(cx - 4 * FOOD_SIGMA, 0);
+        int end_x = fmin(cx + 4 * FOOD_SIGMA, food_map.width - 1);
         // y in outer loop for better cache performance
         for (int y = start_y; y <= end_y; y++) {
             for (int x = start_x; x <= end_x; x++) {
                 // 2d gaussian function
                 double food_value = TRAIL_MAX * FOOD_FACTOR *exp(-(pow(cx - x, 2) + pow(cy - y, 2))/(2.0 * FOOD_SIGMA * FOOD_SIGMA));
-                food_map.grid[y * food_map.width + x] = food_value;
+                food_map.grid[y * food_map.width + x] += food_value;
             }
         }
     }
@@ -189,7 +205,7 @@ int main(int argc, char *argv[]) {
 
     // intialize agents
     struct Agent *agents = malloc_or_die(nagents * sizeof(*agents));
-    intialize_agents(agents, nagents, trail_map.width, trail_map.height);
+    intialize_agents(agents, nagents, trail_map.width, trail_map.height, &seeds[0]);
     // record the number of agents at each point
     int *agent_pos_freq = malloc_or_die(trail_map.width * trail_map.height* sizeof(*agent_pos_freq));
 
@@ -199,7 +215,7 @@ int main(int argc, char *argv[]) {
     food_map.width = trail_map.width;
     food_map.height = trail_map.height;
     food_map.grid = malloc_or_die(food_map.width * food_map.height * sizeof(*food_map.grid));
-    initialize_foods(foods, N_FOOD, food_map.width, food_map.height);
+    initialize_foods(foods, N_FOOD, food_map.width, food_map.height, &seeds[0]);
     fill_food_map(food_map, foods, N_FOOD);
 
     //initiate FFmpeg
@@ -213,7 +229,11 @@ int main(int argc, char *argv[]) {
     // main simulation loop
     for (int i = 0; i < seconds * fps; i++) {
         //printf("----Cycle %d----\n", i);
-        simulate_step(&trail_map, agents, nagents, behavior, agent_pos_freq, seeds);
+        if (N_FOOD != 0 && i % FOOD_CHANGE_PERIOD == 0) {
+            change_food(foods, N_FOOD, food_map.width, food_map.height, &seeds[0]);
+            fill_food_map(food_map, foods, N_FOOD);
+        }
+        simulate_step(&trail_map, food_map, agents, nagents, behavior, agent_pos_freq, seeds);
         prepare_and_write_image(trail_map.grid, food_map.grid, trail_map.width, trail_map.height, colormap, outfd);
     }
 
