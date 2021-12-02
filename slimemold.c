@@ -27,10 +27,10 @@
 
 #define TRAIL_MAX 1000
 // the max food value is the factor times the max trail value
-#define FOOD_FACTOR 1
+#define FOOD_FACTOR 2
 // provides how spread out the food chemicals are
-#define FOOD_SIGMA 10
-#define N_FOOD 10
+#define FOOD_SIGMA 5
+#define N_FOOD 0
 
 // how many cycles between changing the food
 #define FOOD_CHANGE_PERIOD 1800
@@ -91,18 +91,18 @@ void prepare_and_write_image (double* trail_map, double* food_map, int width, in
 void intialize_agents(struct Agent *agents, int nagents, int width, int height, unsigned int* seedp) {
     // give each agent a random position and direction
     for (int i = 0; i < nagents; i++) {
-        agents[i].x = randd(0, width, seedp);
-        agents[i].y = randd(0, height, seedp);
+        //agents[i].x = randd(0, width, seedp);
+        //agents[i].y = randd(0, height, seedp);
         agents[i].direction = randd(0, 2 * M_PI, seedp);
 
         //agents[i].x = 0.5 * width;
         //agents[i].y = 0.5 * height;
         //agents[i].direction = 0;
 
-        //double rad = 0.4 * (width < height ? width : height);
-        //agents[i].direction = randd(-M_PI, M_PI, &seed);
-        //agents[i].x = -rad * randd(0.95, 1.05, &seed) * sin(agents[i].direction) + width/2;
-        //agents[i].y = rad * randd(0.95, 1.05, &seed)* cos(agents[i].direction) + height/2;
+        double rad = 0.4 * (width < height ? width : height);
+        agents[i].direction = randd(-M_PI, M_PI, seedp);
+        agents[i].x = -rad * randd(0.99, 1.01, seedp) * sin(agents[i].direction) + width/2;
+        agents[i].y = rad * randd(0.99, 1.01, seedp)* cos(agents[i].direction) + height/2;
     }
 }
 

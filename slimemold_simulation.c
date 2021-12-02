@@ -109,6 +109,13 @@ void disperse_trail(struct Map *p_trail_map, double dispersion_rate) {
     p_trail_map->grid = next_grid;
 }
 
+// given the trail and food value, return the level of attraction
+double attraction(double trail, double food) {
+    // TODO un hardcode trail max
+    double trail_max = 1000;
+    return trail + 0*(1 - exp(10*trail/trail_max)) + food;
+}
+
 // turns in the direction with the highest trail value
 void turn_uptrail(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, struct Map trail_map, struct Map food_map, unsigned int *seedp) {
     // randomize left and right order
@@ -130,8 +137,9 @@ void turn_uptrail(struct Agent *agent, double rotation_angle, double sensor_leng
             continue;
         }
         int index = get_index(trail_map.width, ahead_x, ahead_y);
-        if(trail_map.grid[index] + food_map.grid[index] > max_trail) {
-            max_trail = trail_map.grid[index] + food_map.grid[index];
+        double attr = attraction(trail_map.grid[index], food_map.grid[index]);
+        if(attr > max_trail) {
+            max_trail = attr;
             max_direction = agent->direction + (order[i] * rotation_angle);
         }
     }
