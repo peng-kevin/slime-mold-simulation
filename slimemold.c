@@ -27,7 +27,7 @@
 
 #define TRAIL_MAX 1000
 // the max food value is the factor times the max trail value
-#define FOOD_FACTOR 2
+#define FOOD_FACTOR 1
 // provides how spread out the food chemicals are
 #define FOOD_SIGMA 10
 #define N_FOOD 10

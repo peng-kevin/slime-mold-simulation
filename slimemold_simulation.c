@@ -111,16 +111,12 @@ void disperse_trail(struct Map *p_trail_map, double dispersion_rate) {
 
 // turns in the direction with the highest trail value
 void turn_uptrail(struct Agent *agent, double rotation_angle, double sensor_length, double sensor_angle, struct Map trail_map, struct Map food_map, unsigned int *seedp) {
-    // randomize order in which directions are checked to avoid bias in certain direction
+    // randomize left and right order
     const int length = 3;
     int order[3];
-    switch (randint(0, 5, seedp)) {
-        case 0: order[0] = -1; order[1] = 0; order[2] = 1; break;
-        case 1: order[0] = -1; order[1] = 1; order[2] = 0; break;
-        case 2: order[0] = 0; order[1] = -1; order[2] = 1; break;
-        case 3: order[0] = 0; order[1] = 1; order[2] = -1; break;
-        case 4: order[0] = 1; order[1] = -1; order[2] = 0; break;
-        case 5: order[0] = 1; order[1] = 0; order[2] = -1; break;
+    switch (randint(0, 1, seedp)) {
+        case 0: order[0] = 0; order[1] = -1; order[2] = 1; break;
+        case 1: order[0] = 0; order[1] = 1; order[2] = -1; break;
         default: fprintf(stderr, "Error selecting sensor order\n"); exit(1);
     }
     double max_direction = agent->direction;
