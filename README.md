@@ -5,7 +5,7 @@
 
 
 # Sources
-[Sebastion League's video](https://www.youtube.com/watch?v=X-iSQQgOd1A)
+[Sebastion Lague's video](https://www.youtube.com/watch?v=X-iSQQgOd1A)
 
 [Slime mold paper](https://uwe-repository.worktribe.com/output/980579)
 
