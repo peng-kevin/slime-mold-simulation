@@ -189,7 +189,22 @@ void move_and_check_wall_collision (struct Agent *agent, double step_size, doubl
     double new_x = next_x(agent->x, cur_speed, agent->direction);
     double new_y = next_y(agent->y, cur_speed, agent->direction);
     // check for collision
-    check_wall_collision(agent, &new_x, &new_y, trail_map, seedp);
+    // use seedp to prevent unused parameter error
+    (void) seedp;
+    // check_wall_collision(agent, &new_x, &new_y, trail_map, seedp);
+    // wrap instead
+    // TODO: wrap trail dispersion too
+    new_x = fmod(new_x + trail_map.width, trail_map.width);
+    new_y = fmod(new_y + trail_map.height, trail_map.height);
+    // a little is subtracted from width because x is rounded down and
+    // trail_map[y][width] would be out of bound
+    if (new_x > trail_map.width - EPSILON) {
+        new_x = trail_map.width - EPSILON;
+    }
+    if (new_y > trail_map.width - EPSILON) {
+        new_y = trail_map.width - EPSILON;
+    }
+    //printf("new_x: %f new_y: %f\n", new_x, new_y);
     // update position
     agent->x = new_x;
     agent->y = new_y;
